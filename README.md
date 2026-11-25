@@ -1,14 +1,63 @@
 # fast-http-fields
 
-The fast-http-fields monorepo: fast, focused Ruby gems for HTTP field
-grammars (RFC 9651 structured field values and the field RFCs built on it).
-Five gems, published per-gem:
+The fast-http-fields monorepo: a collection of small, standalone,
+releasable Ruby gems, each implementing one HTTP field grammar
+faithfully to its RFC. Pure Ruby throughout; the only runtime
+dependency anywhere in the family is `fast-sfv` itself — the substrate
+the other four fields are built on (every one of them is a Structured
+Field Value).
 
-- fast-sfv — RFC 9651 structured field values (foundation)
-- fast-priority — RFC 9218 HTTP Priority
-- fast-digest — RFC 9530 Content-Digest / Repr-Digest / Want-\*
-- fast-proxy-status — RFC 9209 Proxy-Status, RFC 9211 Cache-Status, RFC 9213 targeted cache control
-- fast-client-cert — RFC 9440 Client-Cert / Client-Cert-Chain
+## What lives here
 
-Bootstrapped by the 20261124-fast-fields space; the loop provisions on this
-placeholder commit.
+| Gem | RFCs | Status |
+|-----|------|--------|
+| [`gems/sfv`](gems/sfv/README.md) — `fast-sfv` (`Fast::SFV`) | RFC 9651 (8941 is the documented subset) | scaffolded |
+| `gems/priority` — `fast-priority` (`Fast::Priority`) | RFC 9218 | planned |
+| `gems/digest` — `fast-digest` (`Fast::Digest`) | RFC 9530 | planned |
+| `gems/proxy_status` — `fast-proxy-status` (`Fast::ProxyStatus`, `Fast::CacheStatus`, `Fast::TargetedCacheControl`) | RFC 9209, 9211, 9213 | planned |
+| `gems/client_cert` — `fast-client-cert` (`Fast::ClientCert`) | RFC 9440 | planned |
+
+The four "planned" gems are built in this repo's loop order
+(fast-sfv first — it must be published before the dependents can
+package). The machinery (CI, release dispatch map, packaging verify,
+test harness) covers all five from day one; a new gem directory needs
+no machinery edit.
+
+## The naming rule
+
+Gems are named for the field grammar they implement, not for a vendor
+or an application: `fast-sfv` implements Structured Field Values,
+`fast-proxy-status` implements the Proxy-Status field. Gem
+directories are the underscored form (`gems/proxy_status`,
+`gems/client_cert`) and the require leaf maps `fast/<underscored>`
+(`require "fast/proxy_status"`); gem names and release-tag prefixes
+are hyphenated (`fast-proxy-status`, `proxy-status-v*`).
+
+## Releases
+
+Tags are per gem: `<prefix>-v<semver>` — `sfv-v0.1.0`,
+`priority-v0.1.0`, `digest-v0.1.0`, `proxy-status-v0.1.0`,
+`client-cert-v0.1.0`. A bare `v*` tag is rejected loudly by the
+release workflow — there is no legacy path. Publishing is RubyGems
+trusted publishing (OIDC, no API token): the workflow's dispatch map
+carries a first-publish OWNER entry for each gem until that gem's
+first release lands. First 0.1.0 releases are cut by the authorized
+loop driver after each gem's docs iteration; after that, tags are cut
+by hand at landing.
+
+See the gem READMEs under `gems/` for installation, quickstart, and
+the exact guarantees each gem makes.
+
+## Development
+
+```
+bundle install
+bundle exec sus        # every gem's suite (config/sus.rb routes gems/*/lib + gems/*/test)
+bundle exec rubocop
+```
+
+CI (`.github/workflows/ci.yml`): spec matrix on Ruby 3.4/4.0, lint,
+the per-gem build loop (`gem build` from each `gems/*/` directory —
+nested gemspecs are unbuildable from the repo root), and a security
+audit. `script/verify-packaged.rb` proves a built package carries its
+require path from outside the checkout.
