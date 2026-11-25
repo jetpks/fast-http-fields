@@ -1,4 +1,5 @@
 vendor/
+gems.locked
 .bundle/
 pkg/
 coverage/

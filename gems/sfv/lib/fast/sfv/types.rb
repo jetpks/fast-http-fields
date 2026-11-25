@@ -17,6 +17,16 @@ module Fast
         @params = params
         freeze
       end
+
+      # The canonical wire form (RFC 9651 §4.1.3) — exactly what
+      # Fast::SFV.serialize_item answers: the bare item, then its
+      # parameters. Strict: a hand-built non-serializable value raises
+      # SerializeError; a parse result never does, since every corpus
+      # value round-trips. Computed on demand, so construction stays
+      # as cheap as the parse path's frozen budgets require.
+      def to_s
+        Serializer.item_string(self)
+      end
     end
 
     # A parsed Inner List (RFC 9651 §3.1.1): a frozen Array of Items plus
@@ -30,6 +40,14 @@ module Fast
         @params = params
         freeze
       end
+
+      # The canonical wire form (RFC 9651 §4.1.1.1) — "(" and ")" around
+      # the items joined by single SPs, the list's own parameters after
+      # the close; "()" for the empty list. The same strictness as
+      # Item#to_s.
+      def to_s
+        Serializer.inner_list_string(self)
+      end
     end
 
     # A parsed Date (RFC 9651 §3.3.7): the Integer delta-seconds from
@@ -42,6 +60,11 @@ module Fast
         @value = value
         freeze
       end
+
+      # The canonical wire form (RFC 9651 §4.1.10): "@" + the integer.
+      def to_s
+        Serializer.date_string(self)
+      end
     end
 
     # A parsed Display String (RFC 9651 §3.3.8): a frozen UTF-8 String that
@@ -52,6 +75,13 @@ module Fast
       def initialize(value)
         @value = value
         freeze
+      end
+
+      # The canonical wire form (RFC 9651 §4.1.11): `"` delimited, "%",
+      # DQUOTE and the control/high bytes as "%" + two lowercase hex
+      # digits, the ASCII bytes literal.
+      def to_s
+        Serializer.display_string_string(self)
       end
     end
   end

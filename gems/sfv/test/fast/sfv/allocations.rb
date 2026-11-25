@@ -79,4 +79,55 @@ describe "allocations" do
     # items Array and two member Items.
     expect(allocations { Fast::SFV.parse_dict(input) }).to be(:<, 12)
   end
+
+  # Serialize budgets, measured on Ruby 4.0.10, then frozen: a bare item
+  # 1, an item with parameters 1, a decimal item 2 (the Float#to_s text
+  # its digits are read from — the one unavoidable temporary), a list 1,
+  # a dictionary 1. The output String only, whatever the member count:
+  # the emission appends into the one buffer, spelling integers by
+  # division and tokens, strings and keys whole, so a 100-member list
+  # is still 1.
+  it "serializes a bare item in one object" do
+    item = Fast::SFV::Item.new(42, {})
+    Fast::SFV.serialize_item(item)
+    # The output String only — 1 object.
+    expect(allocations { Fast::SFV.serialize_item(item) }).to be(:<, 2)
+  end
+
+  it "serializes an item with parameters in one object" do
+    item = Fast::SFV::Item.new(5, { "foo" => :bar, "a" => 1, "b" => false, "c" => true })
+    Fast::SFV.serialize_item(item)
+    # The output String only — 1 object: the keys, the token and the
+    # digits all append into the one buffer.
+    expect(allocations { Fast::SFV.serialize_item(item) }).to be(:<, 2)
+  end
+
+  it "serializes a decimal item in two objects" do
+    item = Fast::SFV::Item.new(1.23, {})
+    Fast::SFV.serialize_item(item)
+    # The output String and the decimal's shortest-form text — 2
+    # objects, the unavoidable temporary the as-written digits are
+    # read from; the mantissa itself accumulates in place.
+    expect(allocations { Fast::SFV.serialize_item(item) }).to be(:<, 3)
+  end
+
+  it "serializes a list in one object" do
+    list = [Fast::SFV::Item.new(1, {}), Fast::SFV::InnerList.new([Fast::SFV::Item.new(2, {})], { "a" => 1 })]
+    Fast::SFV.serialize_list(list)
+    # The output String only — 1 object: inner lists and parameters
+    # included, no per-member temporaries.
+    expect(allocations { Fast::SFV.serialize_list(list) }).to be(:<, 2)
+  end
+
+  it "serializes a dictionary in one object" do
+    dictionary = {
+      "a" => Fast::SFV::Item.new(false, {}),
+      "b" => Fast::SFV::Item.new(true, {}),
+      "c" => Fast::SFV::InnerList.new([Fast::SFV::Item.new(1, {}), Fast::SFV::Item.new(2, {})], {})
+    }
+    Fast::SFV.serialize_dict(dictionary)
+    # The output String only — 1 object, short forms and "=" members
+    # alike (a decimal member would add its 1 text object).
+    expect(allocations { Fast::SFV.serialize_dict(dictionary) }).to be(:<, 2)
+  end
 end

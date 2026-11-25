@@ -21,5 +21,24 @@ module Fast
         @offset = offset
       end
     end
+
+    # The value tree is not serializable as a Structured Field Value: the
+    # strict RFC 9651 §4.1 emit could not proceed (a sender never puts
+    # garbage on the wire — §1.2 demands behavior indistinguishable from
+    # the algorithms, so there is no lenient reading to fall back to).
+    # #offset is the byte position in the output built so far, an Integer
+    # in 0..output.bytesize; #message carries the reason. The whole emit
+    # path raises this class and never TypeError: on emit the wrongness
+    # is in the value tree being sent — wrong types, wrong shapes,
+    # out-of-range values, invalid key or string content — which is field
+    # content, not a caller protocol bug.
+    class SerializeError < Error
+      attr_reader :offset
+
+      def initialize(message, offset)
+        super(message)
+        @offset = offset
+      end
+    end
   end
 end
