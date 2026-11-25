@@ -11,7 +11,7 @@ Field Value).
 
 | Gem | RFCs | Status |
 |-----|------|--------|
-| [`gems/sfv`](gems/sfv/README.md) — `fast-sfv` (`Fast::SFV`) | RFC 9651 (8941 is the documented subset) | scaffolded |
+| [`gems/sfv`](gems/sfv/README.md) — `fast-sfv` (`Fast::SFV`) | RFC 9651 (8941 is the documented subset) | 0.1.0 |
 | `gems/priority` — `fast-priority` (`Fast::Priority`) | RFC 9218 | planned |
 | `gems/digest` — `fast-digest` (`Fast::Digest`) | RFC 9530 | planned |
 | `gems/proxy_status` — `fast-proxy-status` (`Fast::ProxyStatus`, `Fast::CacheStatus`, `Fast::TargetedCacheControl`) | RFC 9209, 9211, 9213 | planned |
