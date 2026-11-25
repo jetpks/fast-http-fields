@@ -6,10 +6,15 @@ require "fast/sfv"
 # costs in Ruby objects beyond the input. Counts are GC.stat, averaged over
 # runs so a one-off allocation outside the block (GC.stat's own, under
 # coverage) does not count, and everything a measured block touches is a
-# local. Measured on Ruby 4.0.10, then frozen: a bare item 2, an item with
-# parameters 7, a string item 3, a byte sequence item 3, a display string
-# item 4, a three-token list 8, a multi-line list 5, a mixed dictionary
-# with an inner list 11.
+# local. Measured on Ruby 4.0.10, then frozen: a bare item 2, a token bare
+# item 4, an item with parameters 8, a string item 3, a byte sequence item
+# 3, a display string item 4, a three-token list 11, a multi-line list 5,
+# a mixed dictionary with an inner list 11. A token value costs its
+# content slice plus the Fast::SFV::Token built from it — measured one
+# object more than the slice alone, the same worst-case the Symbol path
+# paid for a fresh Symbol: an intern cache would save one object per
+# repeated value and is deliberately not built, the delta being a
+# per-value constant nowhere near a budget demand.
 describe "allocations" do
   # Objects allocated per run of the block, averaged over +times+ runs.
   def allocations(times = 100, &block)
@@ -25,12 +30,20 @@ describe "allocations" do
     expect(allocations { Fast::SFV.parse_item(input) }).to be(:<, 3)
   end
 
-  it "parses an item with parameters in seven objects" do
+  it "parses a token bare item in four objects" do
+    input = "sugar"
+    Fast::SFV.parse_item(input)
+    # The Parser, the Item, the token value's content slice and the
+    # Fast::SFV::Token the boundary builds from it.
+    expect(allocations { Fast::SFV.parse_item(input) }).to be(:<, 5)
+  end
+
+  it "parses an item with parameters in eight objects" do
     input = "5; foo=bar; a=1; b=?0"
     Fast::SFV.parse_item(input)
     # The Parser, the Item, the parameter Hash, the three parameter key
-    # Strings and the token value's String, which #to_sym then interns.
-    expect(allocations { Fast::SFV.parse_item(input) }).to be(:<, 8)
+    # Strings, and the token value's content slice and Fast::SFV::Token.
+    expect(allocations { Fast::SFV.parse_item(input) }).to be(:<, 9)
   end
 
   it "parses a string item in three objects" do
@@ -55,12 +68,12 @@ describe "allocations" do
     expect(allocations { Fast::SFV.parse_item(input) }).to be(:<, 5)
   end
 
-  it "parses a three-token list in eight objects" do
+  it "parses a three-token list in eleven objects" do
     input = "sugar, tea, rum"
     Fast::SFV.parse_list(input)
-    # The Parser, the members Array, the three Items and the three token
-    # Strings the Symbols are interned from.
-    expect(allocations { Fast::SFV.parse_list(input) }).to be(:<, 9)
+    # The Parser, the members Array, the three Items, and each token
+    # value's content slice and Fast::SFV::Token.
+    expect(allocations { Fast::SFV.parse_list(input) }).to be(:<, 12)
   end
 
   it "parses a multi-line list in five objects" do
@@ -85,8 +98,9 @@ describe "allocations" do
   # its digits are read from — the one unavoidable temporary), a list 1,
   # a dictionary 1. The output String only, whatever the member count:
   # the emission appends into the one buffer, spelling integers by
-  # division and tokens, strings and keys whole, so a 100-member list
-  # is still 1.
+  # division and tokens — Fast::SFV::Token values, appended whole like
+  # any String — plus strings and keys whole, so a 100-member list is
+  # still 1.
   it "serializes a bare item in one object" do
     item = Fast::SFV::Item.new(42, {})
     Fast::SFV.serialize_item(item)
@@ -95,10 +109,10 @@ describe "allocations" do
   end
 
   it "serializes an item with parameters in one object" do
-    item = Fast::SFV::Item.new(5, { "foo" => :bar, "a" => 1, "b" => false, "c" => true })
+    item = Fast::SFV::Item.new(5, { "foo" => Fast::SFV::Token.new("bar"), "a" => 1, "b" => false, "c" => true })
     Fast::SFV.serialize_item(item)
-    # The output String only — 1 object: the keys, the token and the
-    # digits all append into the one buffer.
+    # The output String only — 1 object: the keys, the Fast::SFV::Token
+    # and the digits all append into the one buffer.
     expect(allocations { Fast::SFV.serialize_item(item) }).to be(:<, 2)
   end
 
@@ -112,22 +126,26 @@ describe "allocations" do
   end
 
   it "serializes a list in one object" do
-    list = [Fast::SFV::Item.new(1, {}), Fast::SFV::InnerList.new([Fast::SFV::Item.new(2, {})], { "a" => 1 })]
+    list = [
+      Fast::SFV::Item.new(Fast::SFV::Token.new("a"), {}),
+      Fast::SFV::InnerList.new([Fast::SFV::Item.new(2, {})], { "a" => 1 })
+    ]
     Fast::SFV.serialize_list(list)
-    # The output String only — 1 object: inner lists and parameters
-    # included, no per-member temporaries.
+    # The output String only — 1 object: the bare token member, inner
+    # lists and parameters included, no per-member temporaries.
     expect(allocations { Fast::SFV.serialize_list(list) }).to be(:<, 2)
   end
 
   it "serializes a dictionary in one object" do
     dictionary = {
       "a" => Fast::SFV::Item.new(false, {}),
-      "b" => Fast::SFV::Item.new(true, {}),
+      "b" => Fast::SFV::Item.new(true, { "foo" => Fast::SFV::Token.new("bar") }),
       "c" => Fast::SFV::InnerList.new([Fast::SFV::Item.new(1, {}), Fast::SFV::Item.new(2, {})], {})
     }
     Fast::SFV.serialize_dict(dictionary)
-    # The output String only — 1 object, short forms and "=" members
-    # alike (a decimal member would add its 1 text object).
+    # The output String only — 1 object, short forms with token
+    # parameters, "=" members and inner lists alike (a decimal member
+    # would add its 1 text object).
     expect(allocations { Fast::SFV.serialize_dict(dictionary) }).to be(:<, 2)
   end
 end

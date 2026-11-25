@@ -405,13 +405,13 @@ module Fast
       end
 
       # §4.2.6 Parsing a Token: ALPHA or "*" first, then tchar, ":" or "/" —
-      # a Symbol on the Ruby side (Symbol#name hands back the frozen String
-      # the token already spelled, no copy).
+      # a Token on the Ruby side: the class is the wire-type tag, and the
+      # constructor re-validates the walked bytes at the boundary.
       def parse_token
         start = @pos
         @pos += 1
         @pos += 1 while TOKEN_BODY[byte]
-        @input.byteslice(start, @pos - start).to_sym
+        Token.new(@input.byteslice(start, @pos - start))
       end
 
       # §4.2.7 Parsing a Byte Sequence: ":" ... ":" over the base64

@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "json"
 require "fast/sfv"
 
 describe Fast::SFV do
@@ -7,8 +8,12 @@ describe Fast::SFV do
     it "parses each of the eight bare item types" do
       expect(Fast::SFV.parse_item("42").value).to be(:==, 42)
       expect(Fast::SFV.parse_item("-1.23").value).to be(:==, -1.23)
-      expect(Fast::SFV.parse_item("\"foo\"").value).to be(:==, "foo")
-      expect(Fast::SFV.parse_item("sugar").value).to be(:==, :sugar)
+      string = Fast::SFV.parse_item("\"foo\"").value
+      expect(string).to be(:==, "foo")
+      expect(string.is_a?(Fast::SFV::Token)).to be(:==, false)
+      token = Fast::SFV.parse_item("sugar").value
+      expect(token).to be(:kind_of?, Fast::SFV::Token)
+      expect(token).to be(:==, "sugar")
       expect(Fast::SFV.parse_item("?1").value).to be(:==, true)
       expect(Fast::SFV.parse_item("?0").value).to be(:==, false)
       expect(Fast::SFV.parse_item(":aGVsbG8=:").value).to be(:==, "hello")
@@ -114,6 +119,7 @@ describe Fast::SFV do
       expect(list[0]).to be(:frozen?)
       expect(list[0].items).to be(:frozen?)
       expect(list[0].items[0].value).to be(:frozen?)
+      expect(list[0].items[1].value).to be(:frozen?)
       expect(list[0].params).to be(:frozen?)
       expect(list[1].params).to be(:frozen?)
       expect(list[1].params.keys.first).to be(:frozen?)
@@ -126,24 +132,74 @@ describe Fast::SFV do
     end
   end
 
+  describe Fast::SFV::Token do
+    it "constructs every grammatical token, the 512-character floor included" do
+      %w[FooBar fooBar * *a foo123/456 a_b-c.d3:f%00/*].each do |valid|
+        expect(Fast::SFV::Token.new(valid)).to be(:==, valid)
+      end
+      long = "a" * 512
+      expect(Fast::SFV::Token.new(long).length).to be(:==, 512)
+    end
+
+    it "raises ArgumentError for content outside the token grammar" do
+      ["a b", "a\"b", "", "9foo", "_foo", "-foo", "h\u00e9llo", "a\u0000b"].each do |invalid|
+        expect { Fast::SFV::Token.new(invalid) }.to raise_exception(ArgumentError)
+      end
+    end
+
+    it "raises TypeError for a non-String" do
+      [:sym, 42, nil].each do |wrong|
+        expect { Fast::SFV::Token.new(wrong) }.to raise_exception(::TypeError)
+      end
+    end
+
+    it "is a frozen String: content equality both ways, the Hash-key idiom" do
+      token = Fast::SFV::Token.new("bar")
+      expect(token).to be(:kind_of?, String)
+      expect(token.class).to be(:==, Fast::SFV::Token)
+      expect(token).to be(:==, "bar")
+      expect("bar").to be(:==, token)
+      expect({ "bar" => 1 }[Fast::SFV::Token.new("bar")]).to be(:==, 1)
+      expect(token.to_s).to be(:==, "bar")
+      expect(token.frozen?).to be(:==, true)
+      expect { token << "x" }.to raise_exception(FrozenError)
+    end
+
+    it "inspects with the class name and the content" do
+      text = Fast::SFV::Token.new("bar").inspect
+      expect(text.include?("Token")).to be(:==, true)
+      expect(text.include?("bar")).to be(:==, true)
+    end
+
+    it "goes wherever a String goes: send and JSON" do
+      expect("abc".send(Fast::SFV::Token.new("upcase"))).to be(:==, "ABC")
+      expect(JSON.generate(Fast::SFV::Token.new("bar"))).to be(:==, "\"bar\"")
+    end
+  end
+
   describe "RFC 9651 §3 examples" do
     it "parses Example-List" do
-      expect(Fast::SFV.parse_list("sugar, tea, rum").map(&:value)).to be(:==, %i[sugar tea rum])
+      values = Fast::SFV.parse_list("sugar, tea, rum").map(&:value)
+      expect(values).to be(:==, %w[sugar tea rum])
+      expect(values.all? { |value| value.is_a?(Fast::SFV::Token) }).to be(:==, true)
     end
 
     it "parses the inner-list and parameter example" do
       list = Fast::SFV.parse_list("(\"foo\"; a=1;b=2);lvl=5, (\"bar\" \"baz\");lvl=1")
       expect(list[0]).to be(:kind_of?, Fast::SFV::InnerList)
       expect(list[0].items.map(&:value)).to be(:==, ["foo"])
+      expect(list[0].items[0].value.is_a?(Fast::SFV::Token)).to be(:==, false)
       expect(list[0].items[0].params).to be(:==, { "a" => 1, "b" => 2 })
       expect(list[0].params).to be(:==, { "lvl" => 5 })
       expect(list[1].items.map(&:value)).to be(:==, %w[bar baz])
+      expect(list[1].items.map(&:value).none? { |value| value.is_a?(Fast::SFV::Token) }).to be(:==, true)
     end
 
     it "parses Example-Dict and Example-IntHeader" do
       dictionary = Fast::SFV.parse_dict("en=\"Applepie\", da=:w4ZibGV0w6ZydGU=:")
       expect(dictionary.keys).to be(:==, %w[en da])
       expect(dictionary["en"].value).to be(:==, "Applepie")
+      expect(dictionary["en"].value.is_a?(Fast::SFV::Token)).to be(:==, false)
       expect(dictionary["da"].value.bytes).to be(:==, "Æbletærte".b.bytes)
 
       integer = Fast::SFV.parse_item("1; a; b=?0")
@@ -156,7 +212,8 @@ describe Fast::SFV do
       expect(dictionary.keys).to be(:==, %w[a b c d])
       expect(dictionary["a"].items.map(&:value)).to be(:==, [1, 2])
       expect(dictionary["b"].value).to be(:==, 3)
-      expect(dictionary["c"].params).to be(:==, { "aa" => :bb })
+      expect(dictionary["c"].params["aa"]).to be(:kind_of?, Fast::SFV::Token)
+      expect(dictionary["c"].params).to be(:==, { "aa" => "bb" })
       expect(dictionary["d"].params).to be(:==, { "valid" => true })
     end
   end

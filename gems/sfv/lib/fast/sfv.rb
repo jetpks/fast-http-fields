@@ -25,23 +25,25 @@ module Fast
   # lines, combined with ", " (§4.2's combining rule). Results are
   # deep-frozen: the Items and InnerLists, the list Array, the ordered
   # dictionary and parameter Hashes with their String keys, and every
-  # String the parse produced. Tokens arrive as Symbols, byte sequences
-  # as frozen ASCII-8BIT Strings, dates and display strings wrapped in
-  # Fast::SFV::Date and Fast::SFV::DisplayString.
+  # String the parse produced. Tokens arrive as Fast::SFV::Token
+  # values — frozen String subclasses whose class is the wire-type tag
+  # — byte sequences as frozen ASCII-8BIT Strings, dates and display
+  # strings wrapped in Fast::SFV::Date and Fast::SFV::DisplayString.
   #
   # The emit side takes those shapes back to the wire:
   # serialize_item, serialize_list and serialize_dict produce the
   # canonical §4.1 form as a fresh US-ASCII String the caller owns, or
   # nil for an empty List or Dictionary (§4.1 step 1: omit the field
   # entirely). The Ruby type of a value is its wire-type tag — an
-  # Integer is an integer, a Float a decimal, a Symbol a token, a String
-  # an sf-string unless it is tagged ASCII-8BIT and so a byte sequence;
-  # the content never decides. Strict: any non-serializable input raises
-  # Fast::SFV::SerializeError with the byte offset into the output built
-  # so far — there is no coercion, so TypeError never appears on the
-  # emit path. Item#to_s, InnerList#to_s, Date#to_s and
-  # DisplayString#to_s are the same emit, and serialize_item answers
-  # exactly item.to_s.
+  # Integer is an integer, a Float a decimal, a Fast::SFV::Token a
+  # token, a String an sf-string unless it is tagged ASCII-8BIT and so a
+  # byte sequence; the content never decides, and the Token class is
+  # read before String in the dispatch because a Token is a String.
+  # Strict: any non-serializable input raises Fast::SFV::SerializeError
+  # with the byte offset into the output built so far — there is no
+  # coercion, so TypeError never appears on the emit path. Item#to_s,
+  # InnerList#to_s, Date#to_s and DisplayString#to_s are the same emit,
+  # and serialize_item answers exactly item.to_s.
   module SFV
   end
 end

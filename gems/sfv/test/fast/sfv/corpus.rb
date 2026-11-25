@@ -67,9 +67,11 @@ describe "the httpwg structured-field-tests corpus" do
   end
 
   # The frozen translation of the corpus's expected structures onto the
-  # parser's Ruby side: tokens to Symbols, base32 binaries to their
-  # decoded bytes, dates and display strings through #value, parameters
-  # and dictionaries as ordered pair lists.
+  # parser's Ruby side: tokens to Fast::SFV::Token (the class is the tag —
+  # content equality alone cannot tell a token from the plain String a
+  # quoted string parses to), base32 binaries to their decoded bytes,
+  # dates and display strings through #value, parameters and
+  # dictionaries as ordered pair lists.
 
   def matches?(parsed, expected, header_type)
     case header_type
@@ -119,14 +121,14 @@ describe "the httpwg structured-field-tests corpus" do
     case expected
     when Hash
       case expected["__type"]
-      when "token" then value == expected["value"].to_sym
+      when "token" then value.is_a?(Fast::SFV::Token) && value == expected["value"]
       when "binary" then value == decode_base32(expected["value"])
       when "date" then value.is_a?(Fast::SFV::Date) && value.value == expected["value"]
       when "displaystring" then value.is_a?(Fast::SFV::DisplayString) && value.value == expected["value"]
       else false
       end
     else
-      value == expected
+      !value.is_a?(Fast::SFV::Token) && value == expected
     end
   end
 
