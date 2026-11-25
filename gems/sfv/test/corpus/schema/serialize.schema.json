@@ -1,0 +1,34 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/httpwg/structured-field-tests/schema/serialize.schema.json",
+    "type": "array",
+    "minItems": 1,
+    "items": {
+        "type": "object",
+        "$ref": "https://github.com/httpwg/structured-field-tests/schema/expected.schema.json",
+        "properties": {
+            "name": {
+                "type": "string",
+                "minLength": 1
+            },
+            "must_fail": { "type": "boolean" }
+        },
+        "required": ["name"],
+        "unevaluatedProperties": {"not": {}},
+        "if": {
+            "properties": {
+                "must_fail": { "const": false }
+            }
+        },
+        "then": {
+            "properties": {
+                "canonical": {
+                    "type": "array",
+                    "maxItems": 1,
+                    "items": { "type": "string" }
+                }
+            },
+            "required": ["canonical"]
+        }
+    }
+}
