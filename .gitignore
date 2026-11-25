@@ -1,5 +1,8 @@
-.bundle/
 vendor/
+.bundle/
 pkg/
+coverage/
+tmp/
 *.gem
+.DS_Store
 build/

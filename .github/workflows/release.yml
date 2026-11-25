@@ -1,0 +1,237 @@
+name: Release
+
+on:
+  push:
+    # Per-gem release tags: <prefix>-v<semver>. The bare `v*` form is
+    # RETIRED but must still REACH the workflow so the dispatch step can
+    # fail loudly naming the convention — a bare tag that triggers
+    # nothing fails silently, which is exactly the failure mode this
+    # dispatch kills.
+    tags:
+      - "sfv-v*"
+      - "priority-v*"
+      - "digest-v*"
+      - "proxy-status-v*"
+      - "client-cert-v*"
+      - "v*"
+  # Dry-run: build + verify every packaged gem without publishing anything.
+  workflow_dispatch:
+
+jobs:
+  release:
+    name: Build and publish gem
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the GitHub release
+      id-token: write # OIDC token for RubyGems trusted publishing
+    env:
+      # After the dispatch a tag IS a per-gem release tag; the dry-run
+      # (workflow_dispatch) is not.
+      IS_TAG: ${{ startsWith(github.ref, 'refs/tags/') }}
+      MISE_RUBY_VERSION: "4.0"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@v4
+
+      # The per-gem dispatch map (the job's first decision): the tag
+      # prefix selects the gem — GEM_NAME, gem DIRECTORY (underscored:
+      # gems/proxy_status), gemspec, require path, VERSION constant. A
+      # bare `v*` tag has no legacy path: fail loudly, naming the
+      # convention.
+      #
+      # First publish (BRIEF §8): every entry carries OWNER=231507 —
+      # rubygems.org trusted publishers are configured for all five gems
+      # under this workflow, and the first-publish token exchange must
+      # assert the owning account ID (GHSA-48p7-6mjr-3jjj). Each entry's
+      # OWNER is dropped after that gem's first release.
+      - name: Dispatch per-gem release map
+        if: ${{ fromJSON(env.IS_TAG) }}
+        run: |
+          set -e
+          case "$GITHUB_REF_NAME" in
+            sfv-v*)
+              GEM=sfv
+              GEM_NAME=fast-sfv
+              GEM_DIR=gems/sfv
+              GEMSPEC=fast-sfv.gemspec
+              REQUIRE=fast/sfv
+              CONSTANT=Fast::SFV
+              OWNER=231507
+              ;;
+            priority-v*)
+              GEM=priority
+              GEM_NAME=fast-priority
+              GEM_DIR=gems/priority
+              GEMSPEC=fast-priority.gemspec
+              REQUIRE=fast/priority
+              CONSTANT=Fast::Priority
+              OWNER=231507
+              ;;
+            digest-v*)
+              GEM=digest
+              GEM_NAME=fast-digest
+              GEM_DIR=gems/digest
+              GEMSPEC=fast-digest.gemspec
+              REQUIRE=fast/digest
+              CONSTANT=Fast::Digest
+              OWNER=231507
+              ;;
+            proxy-status-v*)
+              # The underscore rule: gem DIRECTORY and require leaf are
+              # underscored (gems/proxy_status, fast/proxy_status); the
+              # gem NAME and the tag PREFIX are hyphenated
+              # (fast-proxy-status, proxy-status-v*).
+              GEM=proxy-status
+              GEM_NAME=fast-proxy-status
+              GEM_DIR=gems/proxy_status
+              GEMSPEC=fast-proxy-status.gemspec
+              REQUIRE=fast/proxy_status
+              CONSTANT=Fast::ProxyStatus
+              OWNER=231507
+              ;;
+            client-cert-v*)
+              # Same underscore rule: gems/client_cert, fast/client_cert;
+              # fast-client-cert, client-cert-v*.
+              GEM=client-cert
+              GEM_NAME=fast-client-cert
+              GEM_DIR=gems/client_cert
+              GEMSPEC=fast-client-cert.gemspec
+              REQUIRE=fast/client_cert
+              CONSTANT=Fast::ClientCert
+              OWNER=231507
+              ;;
+            v*)
+              echo "::error::Bare v* tags are retired: this monorepo releases per gem — use sfv-v<semver>, priority-v<semver>, digest-v<semver>, proxy-status-v<semver>, or client-cert-v<semver> (e.g. sfv-v0.1.0)"
+              exit 1
+              ;;
+            *)
+              echo "::error::Tag $GITHUB_REF_NAME matches no release prefix — use sfv-v<semver>, priority-v<semver>, digest-v<semver>, proxy-status-v<semver>, or client-cert-v<semver>"
+              exit 1
+              ;;
+          esac
+          # The version is the tag with the <prefix>-v prefix stripped
+          # (proxy-status-v0.1.0 → 0.1.0). Prerelease detection runs on
+          # THIS stripped value, never the raw tag name (the hyphen in
+          # `<gem>-v` would mark every release a prerelease).
+          VERSION="${GITHUB_REF_NAME#"$GEM"-v}"
+          {
+            echo "GEM=$GEM"
+            echo "GEM_NAME=$GEM_NAME"
+            echo "GEM_DIR=$GEM_DIR"
+            echo "GEMSPEC=$GEMSPEC"
+            echo "REQUIRE=$REQUIRE"
+            echo "CONSTANT=$CONSTANT"
+            echo "VERSION=$VERSION"
+            echo "OWNER=$OWNER"
+          } >> "$GITHUB_ENV"
+
+      # Monorepo (I51 judge ruling): a nested gemspec is unbuildable from
+      # the repo root — `gem build` runs INSIDE the gem's directory.
+      - name: Build gem
+        if: ${{ fromJSON(env.IS_TAG) }}
+        run: |
+          cd "$GEM_DIR"
+          gem build "$GEMSPEC"
+          mkdir -p ../../pkg/
+          mv *.gem ../../pkg/
+
+      # Dry-run build: every gem under gems/*, no publish.
+      - name: Build every gem (dry-run)
+        if: ${{ !fromJSON(env.IS_TAG) }}
+        run: |
+          set -e
+          mkdir -p pkg/
+          for dir in gems/*/; do
+            [ -f "$dir"*.gemspec ] || continue
+            (cd "$dir" && gem build *.gemspec)
+            mv "$dir"*.gem pkg/
+          done
+
+      # The pre-release rule (fast-* family), monorepo-adapted and now
+      # per-gem: script/verify-packaged.rb installs the built .gem into an
+      # isolated GEM_HOME and requires the gem's require path from OUTSIDE
+      # the checkout — the checkout's lib/ is never on the load path — so
+      # a file missing from spec.files or a require-path mistake fails
+      # here, not after publishing. The script carries the five-gem map
+      # (name => require path, VERSION constant — Fast::SFV is all-caps;
+      # camelize("sfv") would miss it) and verifies one gem per argument,
+      # or every built pkg/*.gem with no argument. Dependencies resolve
+      # from rubygems as today (fast-sfv's dependents resolve the
+      # published gem): isolation of the packaged code, not of the network.
+      - name: Verify the packaged gem
+        if: ${{ fromJSON(env.IS_TAG) }}
+        run: ruby script/verify-packaged.rb "$GEM_NAME"
+
+      - name: Verify every packaged gem (dry-run)
+        if: ${{ !fromJSON(env.IS_TAG) }}
+        run: ruby script/verify-packaged.rb
+
+      # Trusted publishing: no API token. Auth is a short-lived OIDC
+      # credential minted at run time, scoped to this repo + workflow
+      # (rubygems.org trusted publisher: jetpks/fast-http-fields,
+      # release.yml).
+      #
+      # Two paths, selected by the dispatch map's OWNER field:
+      #  - OWNER unset (the gem already exists on rubygems): the stock
+      #    action, which exchanges the OIDC token keylessly.
+      #  - OWNER set (first publication of a NEW gem): rubygems.org's
+      #    GHSA-48p7-6mjr-3jjj rule requires the workflow to assert the
+      #    owning account ID at the token exchange, and no action release
+      #    exposes the `owner` parameter yet
+      #    (rubygems/configure-rubygems-credentials#489) — so the exchange
+      #    runs inline: mint the run's OIDC token, swap it (with owner) for
+      #    a short-lived API key, mask the key. After the gem's first
+      #    publish, OWNER can be dropped from the dispatch map.
+      - name: Configure RubyGems credentials
+        if: ${{ fromJSON(env.IS_TAG) && env.OWNER == '' }}
+        uses: rubygems/configure-rubygems-credentials@v2.1.0
+
+      - name: Exchange the run's OIDC token for a first-publish RubyGems key
+        if: ${{ fromJSON(env.IS_TAG) && env.OWNER != '' }}
+        env:
+          RUBYGEMS_OWNER_ID: ${{ env.OWNER }}
+        run: |
+          set -e
+          jwt=$(curl --fail-with-body -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=rubygems.org" | jq -r .value)
+          key=$(jq -n --arg jwt "$jwt" --arg owner "$RUBYGEMS_OWNER_ID" '{jwt: $jwt, owner: $owner}' |
+            curl --fail-with-body -sS -X POST https://rubygems.org/api/v1/oidc/trusted_publisher/exchange_token \
+            -H "Content-Type: application/json" --data @- | jq -r .rubygems_api_key)
+          echo "::add-mask::$key"
+          echo "GEM_HOST_API_KEY=$key" >> "$GITHUB_ENV"
+
+      - name: Publish to RubyGems
+        if: ${{ fromJSON(env.IS_TAG) }}
+        run: gem push pkg/"$GEM_NAME"-*.gem
+
+      - name: Smoke-test the published gem
+        if: ${{ fromJSON(env.IS_TAG) }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            gem install "$GEM_NAME" --version "$VERSION" && break
+            echo "not indexed yet (attempt $attempt) — retrying in 15s"
+            sleep 15
+          done
+          # The same isolated require + VERSION print as the packaged-gem
+          # verify, now against the PUBLISHED gem from rubygems. The
+          # constant comes from the dispatch map (Fast::SFV is all-caps —
+          # camelize("sfv") would miss it).
+          export GEM_HOME="$RUNNER_TEMP/gemhome-smoke"
+          cd "$RUNNER_TEMP"
+          ruby -e '
+            require ARGV[0]
+            puts Object.const_get(ARGV[1]).const_get(:VERSION)
+          ' "$REQUIRE" "$CONSTANT" | grep -Fx "$VERSION"
+
+      - name: Create GitHub Release
+        if: ${{ fromJSON(env.IS_TAG) }}
+        uses: softprops/action-gh-release@v3
+        with:
+          files: pkg/${{ env.GEM_NAME }}-*.gem
+          generate_release_notes: true
+          # Prerelease detection runs on the STRIPPED version (env.VERSION),
+          # never the raw tag name: the hyphen in `sfv-v0.1.0` would mark
+          # every release a prerelease.
+          prerelease: ${{ contains(env.VERSION, '.rc') || contains(env.VERSION, '.beta') || contains(env.VERSION, '.alpha') || contains(env.VERSION, '.pre') || contains(env.VERSION, '-') }}
