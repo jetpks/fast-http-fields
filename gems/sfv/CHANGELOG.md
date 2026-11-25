@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- Tokens: token values switched from `Symbol` to frozen
+  `Fast::SFV::Token < String` — the class is the wire-type tag, the
+  content is String semantics (`==`, `eql?`, `hash` and `to_s`
+  inherited; `inspect` overridden to name the class), and construction
+  validates the full token grammar (RFC 9651 §3.3.4) at the boundary
+  (`ArgumentError` for invalid content, `TypeError` for a non-String,
+  no length cap). The serializer dispatches on the class: a `Token`
+  emits bare, a plain `String` quoted, an ASCII-8BIT `String` still a
+  byte sequence, and a `Symbol` — wrong-typed input after the switch —
+  raises positioned `SerializeError`. Parse and serialize allocation
+  budgets re-measured and re-frozen for the Token path (a token value
+  costs its content slice plus the `Token`; no intern cache — measured
+  +1 object per value worst-case, not needed). A deliberate, documented
+  divergence from starry, which returns `Symbol` tokens.
 - Serializer: `Fast::SFV.serialize_item`/`serialize_list`/
   `serialize_dict` and `to_s` on the value objects — the strict RFC
   9651 §4.1 emit (all eight bare item types, parameters, inner lists,

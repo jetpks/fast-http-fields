@@ -6,15 +6,17 @@ module Fast
     # one output String, which is the only object an emission allocates —
     # append-only, byte-index validation, no pattern machinery (the parse
     # path's own discipline). The Ruby type of a value IS its wire-type
-    # tag: an Integer is an integer, a Float a decimal, a Symbol a token,
+    # tag: an Integer is an integer, a Float a decimal, a Token a token,
     # a String an sf-string unless it is tagged ASCII-8BIT, which is a
     # byte sequence — the content never decides the type, so "foo" the
-    # String stays a quoted sf-string and :foo the Symbol a bare token
-    # (RFC 9213 §2.1 forbids inferring a type from content). Everything
-    # non-serializable raises SerializeError carrying the output's byte
-    # offset where the emit stopped; the grammar byte classes are the
-    # parse path's (parser.rb owns them, the emit path reads the same
-    # sets from the value side).
+    # String stays a quoted sf-string and Fast::SFV::Token.new("foo") a
+    # bare token (RFC 9213 §2.1 forbids inferring a type from content),
+    # and the Token arm is matched before the String arm in the dispatch
+    # because a Token IS a String — a binary-tagged Token still emits
+    # bare. Everything non-serializable raises SerializeError carrying
+    # the output's byte offset where the emit stopped; the grammar byte
+    # classes are the parse path's (parser.rb owns them, the emit path
+    # reads the same sets from the value side).
     module Serializer
       # The wire grammar classes the emit path validates against: a key's
       # first byte and continuation (§4.1.1.3), a token's first byte and
@@ -200,9 +202,11 @@ module Fast
       end
 
       # §4.1.3.1 Serializing a Bare Item: the Ruby type is the dispatch —
-      # Integer, Float, Symbol (a token), String (an sf-string, or a byte
-      # sequence when tagged ASCII-8BIT), true, false, Date and
-      # DisplayString. Anything else fails; there is no coercion and no
+      # Integer, Float, Token (a token: the arm is matched before the
+      # String arm, because a Token IS a String), String (an sf-string,
+      # or a byte sequence when tagged ASCII-8BIT), true, false, Date
+      # and DisplayString. Anything else fails — a Symbol is wrong-typed
+      # input now that tokens are Tokens; there is no coercion and no
       # content inference.
       def emit_bare_item(output, value)
         case value
@@ -210,7 +214,7 @@ module Fast
           emit_integer(output, value)
         when Float
           emit_decimal(output, value)
-        when Symbol
+        when Token
           emit_token(output, value)
         when String
           if value.encoding == Encoding::ASCII_8BIT
@@ -374,22 +378,21 @@ module Fast
       end
 
       # §4.1.7 Serializing a Token: ALPHA or "*" first, the continuation
-      # TOKEN_BODY — validated on the Symbol's bytes, then the name
-      # appended whole: Symbol#name hands over the frozen String the
-      # Symbol already carries, no copy.
+      # TOKEN_BODY — validated on the Token's own bytes, then appended
+      # whole: the constructor already guaranteed this grammar at the
+      # boundary, so the walk is a strict sender's defensive re-check.
       def emit_token(output, value)
-        name = value.name
-        size = name.bytesize
+        size = value.bytesize
         fail_serialize(output, "a token must not be empty") if size.zero?
-        fail_serialize(output, "a token must start with ALPHA or '*'") unless TOKEN_FIRST[name.getbyte(0)]
+        fail_serialize(output, "a token must start with ALPHA or '*'") unless TOKEN_FIRST[value.getbyte(0)]
 
         index = 1
         while index < size
-          fail_serialize(output, "a token may only carry tchar, ':' and '/'") unless TOKEN_BODY[name.getbyte(index)]
+          fail_serialize(output, "a token may only carry tchar, ':' and '/'") unless TOKEN_BODY[value.getbyte(index)]
 
           index += 1
         end
-        output << name
+        output << value
       end
 
       # §4.1.8 Serializing a Byte Sequence: ":" + the RFC 4648 §4 base64
@@ -507,8 +510,9 @@ module Fast
     # Strict: a non-Item input, or any non-serializable value inside it,
     # raises SerializeError with the byte offset into the output built
     # so far. There is no coercion and no content inference: a String
-    # value is an sf-string whatever it spells, a Symbol a token, an
-    # ASCII-8BIT String a byte sequence.
+    # value is an sf-string whatever it spells, a Fast::SFV::Token a
+    # token (a Symbol is wrong-typed input and raises), an ASCII-8BIT
+    # String a byte sequence.
     def serialize_item(item)
       Serializer.fail_shape("an Item", item) unless item.is_a?(Item)
 

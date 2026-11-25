@@ -10,7 +10,11 @@ require "fast/sfv"
 # `expected` value tree — a must_fail record cannot be serialized, the
 # others must canonicalize; Part A round-trips every non-must_fail parse
 # record through the matching serialize entry point. The corpus is
-# read-only to this harness.
+# read-only to this harness. The 125 token-generated must_fail records
+# carry token values that fail the token grammar itself, so their value
+# trees cannot be built: Token.new's ArgumentError satisfies "the value
+# cannot be serialised" (the corpus README) at the boundary — see the
+# routing in the record `it` below.
 SERIALISATION_TESTS = Dir.glob(File.expand_path("../../corpus/serialisation-tests/*.json", __dir__)).sort
 SERIALISATION = SERIALISATION_TESTS.to_h { |path| [File.basename(path, ".json"), JSON.parse(File.read(path))] }
 SERIALISATION_RECORDS = SERIALISATION.values.flatten
@@ -34,9 +38,9 @@ end
 
 # Part B's value tree from the JSON `expected` structure: bare numbers to
 # Integer/Float, strings to String (an sf-string), booleans to the
-# booleans, a token __type to Symbol — the only __type the
-# serialisation-tests files carry — parameters and dictionaries as
-# ordered Hashes.
+# booleans, a token __type to Fast::SFV::Token through its validating
+# constructor — the only __type the serialisation-tests files carry —
+# parameters and dictionaries as ordered Hashes.
 def build_value(expected, header_type)
   case header_type
   when "item"
@@ -66,9 +70,10 @@ def build_params(pairs)
   pairs.empty? ? {} : pairs.to_h { |key, value| [key, build_bare(value)] }
 end
 
-# One bare value; the __type object is a token.
+# One bare value; the __type object is a token, built through the
+# validating Fast::SFV::Token constructor.
 def build_bare(expected)
-  expected.is_a?(Hash) ? expected["value"].to_sym : expected
+  expected.is_a?(Hash) ? Fast::SFV::Token.new(expected["value"]) : expected
 end
 
 def serialize_record(value, header_type)
@@ -101,11 +106,27 @@ describe "the httpwg serialisation-tests corpus" do
     describe file_name do
       records.each do |record|
         it record["name"] do
-          value = build_value(record["expected"], record["header_type"])
           if record["must_fail"]
-            expect { serialize_record(value, record["header_type"]) }
-              .to raise_exception(Fast::SFV::SerializeError).and(SerializeErrorOffset.new)
+            # All 125 token-generated records carry token values that are
+            # invalid tokens by construction (control bytes, invalid first
+            # bytes, spaces, the empty string), so their value trees
+            # cannot be built: the corpus README's must_fail wording is
+            # "the value cannot be serialised", and an unconstructable
+            # value cannot exist — the ArgumentError from Fast::SFV::Token
+            # satisfies the record at the boundary. The remaining 418
+            # must_fail records build fine and assert the serializer's
+            # SerializeError below.
+            value = begin
+              build_value(record["expected"], record["header_type"])
+            rescue ArgumentError
+              nil
+            end
+            if value
+              expect { serialize_record(value, record["header_type"]) }
+                .to raise_exception(Fast::SFV::SerializeError).and(SerializeErrorOffset.new)
+            end
           else
+            value = build_value(record["expected"], record["header_type"])
             expect(serialize_record(value, record["header_type"])).to be(:==, record["canonical"][0])
           end
         end
@@ -149,7 +170,7 @@ describe Fast::SFV do
       expect(Fast::SFV.serialize_item(Fast::SFV::Item.new(42, {}))).to be(:==, "42")
       expect(Fast::SFV.serialize_item(Fast::SFV::Item.new(-1.23, {}))).to be(:==, "-1.23")
       expect(Fast::SFV.serialize_item(Fast::SFV::Item.new("foo", {}))).to be(:==, "\"foo\"")
-      expect(Fast::SFV.serialize_item(Fast::SFV::Item.new(:sugar, {}))).to be(:==, "sugar")
+      expect(Fast::SFV.serialize_item(Fast::SFV::Item.new(Fast::SFV::Token.new("sugar"), {}))).to be(:==, "sugar")
       expect(Fast::SFV.serialize_item(Fast::SFV::Item.new(true, {}))).to be(:==, "?1")
       expect(Fast::SFV.serialize_item(Fast::SFV::Item.new(false, {}))).to be(:==, "?0")
       expect(Fast::SFV.serialize_item(Fast::SFV::Item.new("hello".b, {}))).to be(:==, ":aGVsbG8=:")
@@ -205,9 +226,21 @@ describe Fast::SFV do
 
     it "never infers the wire type from content: the Ruby type is the tag" do
       expect(Fast::SFV.serialize_item(Fast::SFV::Item.new("foo", {}))).to be(:==, "\"foo\"")
-      expect(Fast::SFV.serialize_item(Fast::SFV::Item.new(:foo, {}))).to be(:==, "foo")
+      expect(Fast::SFV.serialize_item(Fast::SFV::Item.new(Fast::SFV::Token.new("foo"), {}))).to be(:==, "foo")
       expect(Fast::SFV.serialize_item(Fast::SFV::Item.new("hello", {}))).to be(:==, "\"hello\"")
       expect(Fast::SFV.serialize_item(Fast::SFV::Item.new("hello".b, {}))).to be(:==, ":aGVsbG8=:")
+    end
+
+    it "raises SerializeError, positioned, for a Symbol bare value — wrong-typed input now that tokens are Tokens" do
+      error = nil
+      begin
+        Fast::SFV.serialize_item(Fast::SFV::Item.new(:foo, {}))
+      rescue Fast::SFV::SerializeError => e
+        error = e
+      end
+      expect(error).to be(:kind_of?, Fast::SFV::SerializeError)
+      expect(error.offset).to be(:kind_of?, Integer)
+      expect(error.offset).to be(:>=, 0)
     end
 
     it "rounds the decimal digits as written, ties to even (corpus number.json)" do
@@ -240,12 +273,12 @@ describe Fast::SFV do
       expect(Fast::SFV.serialize_list([inner])).to be(:==, "(1 2);a=1")
       expect(Fast::SFV.serialize_list([Fast::SFV::InnerList.new([], {})])).to be(:==, "()")
       expect(Fast::SFV.serialize_list([Fast::SFV::Item.new(1, {}), Fast::SFV::Item.new(42, {})])).to be(:==, "1, 42")
-      expect(Fast::SFV.serialize_item(Fast::SFV::Item.new(5, { "foo" => :bar, "a" => 1, "b" => false, "c" => true })))
-        .to be(:==, "5;foo=bar;a=1;b=?0;c")
+      item = Fast::SFV::Item.new(5, { "foo" => Fast::SFV::Token.new("bar"), "a" => 1, "b" => false, "c" => true })
+      expect(Fast::SFV.serialize_item(item)).to be(:==, "5;foo=bar;a=1;b=?0;c")
       dictionary = {
         "a" => Fast::SFV::Item.new(false, {}),
         "b" => Fast::SFV::Item.new(true, {}),
-        "c" => Fast::SFV::Item.new(true, { "foo" => :bar })
+        "c" => Fast::SFV::Item.new(true, { "foo" => Fast::SFV::Token.new("bar") })
       }
       expect(Fast::SFV.serialize_dict(dictionary)).to be(:==, "a=?0, b, c;foo=bar")
       inner_value = Fast::SFV::InnerList.new([Fast::SFV::Item.new(1, {}), Fast::SFV::Item.new(2, {})], {})
