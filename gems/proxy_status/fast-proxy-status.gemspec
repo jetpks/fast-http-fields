@@ -48,7 +48,7 @@ Gem::Specification.new do |spec|
   # packaging a .gem with no lib/. (The repo-root
   # `gem build gems/proxy_status/…gemspec` form is RubyGems-impossible for a
   # nested monorepo gemspec — build from this directory.)
-  spec.files = Dir.glob(["{lib}/**/*", "*.md"], File::FNM_DOTMATCH, base: File.expand_path(__dir__))
+  spec.files = Dir.glob(["{lib}/**/*", "*.md", "LICENSE"], File::FNM_DOTMATCH, base: File.expand_path(__dir__))
                   .select { |f| File.file?(File.expand_path(f, __dir__)) }
   spec.require_paths = ["lib"]
 

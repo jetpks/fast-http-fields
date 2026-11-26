@@ -148,23 +148,38 @@ jobs:
           done
 
       # The pre-release rule (fast-* family), monorepo-adapted and now
-      # per-gem: script/verify-packaged.rb installs the built .gem into an
-      # isolated GEM_HOME and requires the gem's require path from OUTSIDE
-      # the checkout — the checkout's lib/ is never on the load path — so
-      # a file missing from spec.files or a require-path mistake fails
-      # here, not after publishing. The script carries the five-gem map
-      # (name => require path, VERSION constant — Fast::SFV is all-caps;
-      # camelize("sfv") would miss it) and verifies one gem per argument,
-      # or every built pkg/*.gem with no argument. Dependencies resolve
-      # from rubygems as today (fast-sfv's dependents resolve the
-      # published gem): isolation of the packaged code, not of the network.
-      - name: Verify the packaged gem
+      # per-gem: script/verify-packaged.rb asserts the TAG's version against
+      # the built package's OWN version (read off the .gem, offline, before
+      # any install — a tag cut on a commit that diverged from the gemspec
+      # fails loudly here and never reaches the push), then installs the
+      # built .gem into an isolated GEM_HOME and requires the gem's require
+      # path from OUTSIDE the checkout — the checkout's lib/ is never on
+      # the load path — so a file missing from spec.files or a
+      # require-path mistake fails here, not after publishing. The script
+      # carries the five-gem map (name => require path, VERSION constant
+      # — Fast::SFV is all-caps; camelize("sfv") would miss it) and
+      # verifies one named gem with its optional expected version, or
+      # every built pkg/*.gem with no argument. Dependencies resolve from
+      # rubygems as today (fast-sfv's dependents resolve the published
+      # gem): isolation of the packaged code, not of the network.
+      - name: Assert the tag version, then verify the packaged gem
         if: ${{ fromJSON(env.IS_TAG) }}
-        run: ruby script/verify-packaged.rb "$GEM_NAME"
+        run: ruby script/verify-packaged.rb "$GEM_NAME" "$VERSION"
 
       - name: Verify every packaged gem (dry-run)
         if: ${{ !fromJSON(env.IS_TAG) }}
         run: ruby script/verify-packaged.rb
+
+      # Test-first, publish-last: the whole suite runs BEFORE any
+      # credential is minted, on the tag path and the dry-run alike (no
+      # condition — the dispatch is the unpublishing rehearsal of this
+      # step, and CI runs in parallel with this job and loses the race, so
+      # a red suite must block the release itself, not a separate check
+      # that finishes after the push).
+      - name: Run the full test suite
+        run: |
+          bundle install
+          bundle exec sus
 
       # Trusted publishing: no API token. Auth is a short-lived OIDC
       # credential minted at run time, scoped to this repo + workflow
