@@ -17,7 +17,7 @@ Field Value).
 | `gems/proxy_status` — `fast-proxy-status` (`Fast::ProxyStatus`, `Fast::CacheStatus`, `Fast::TargetedCacheControl`) | RFC 9209, 9211, 9213 | planned |
 | `gems/client_cert` — `fast-client-cert` (`Fast::ClientCert`) | RFC 9440 | planned |
 
-The four "planned" gems are built in this repo's loop order
+The four "planned" gems are built in dependency order
 (fast-sfv first — it must be published before the dependents can
 package). The machinery (CI, release dispatch map, packaging verify,
 test harness) covers all five from day one; a new gem directory needs
@@ -41,9 +41,8 @@ Tags are per gem: `<prefix>-v<semver>` — `sfv-v0.1.0`,
 release workflow — there is no legacy path. Publishing is RubyGems
 trusted publishing (OIDC, no API token): the workflow's dispatch map
 carries a first-publish OWNER entry for each gem until that gem's
-first release lands. First 0.1.0 releases are cut by the authorized
-loop driver after each gem's docs iteration; after that, tags are cut
-by hand at landing.
+first release lands. First 0.1.0 releases are cut after each gem's
+documentation pass; after that, tags are cut by hand at landing.
 
 See the gem READMEs under `gems/` for installation, quickstart, and
 the exact guarantees each gem makes.

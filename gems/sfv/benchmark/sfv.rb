@@ -6,14 +6,19 @@
 # objects/call column); starry is credited as the reference and is a
 # dev-only comparator, never a runtime dependency. The compared surface
 # is the RFC 8941 subset both libraries implement. benchmark-ips; quick
-# mode with BENCH_QUICK=1.
+# mode with BENCH_QUICK=1. Two runtime modes are reportable: the plain
+# interpreter (the no-JIT floor) and --yjit (the compiling runtime, the
+# common production configuration) — the ruby banner records which ran.
 #
 #   bundle exec ruby benchmark/sfv.rb
 #   BENCH_QUICK=1 bundle exec ruby benchmark/sfv.rb
+#   bundle exec ruby --yjit benchmark/sfv.rb
 #
 # Run from the repo root via the benchmark bundle (gems/sfv/gems.rb):
 #
 #   BENCH_QUICK=1 BUNDLE_GEMFILE=gems/sfv/gems.rb bundle exec ruby \
+#     gems/sfv/benchmark/sfv.rb
+#   BUNDLE_GEMFILE=gems/sfv/gems.rb bundle exec ruby --yjit \
 #     gems/sfv/benchmark/sfv.rb
 
 require "benchmark/ips"

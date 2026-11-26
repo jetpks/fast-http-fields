@@ -1,330 +1,171 @@
-# Fast::SFV — API reference
+# API reference
 
-`require "fast/sfv"` — the require path is `fast/sfv`, not
-`fast-sfv`. Requires Ruby `>= 3.4`, with zero runtime dependencies.
-`Fast::SFV` is a module; its module functions are the whole surface,
-and every value it answers is deep-frozen. `Fast::SFV::VERSION` is
-`"0.1.0"`.
+The complete public surface. No prose essays — see the [explanation](../explanation/strictness.md) and how-to guides for rationale and recipes.
 
-## Input contract
+## The module
 
-Every parse entry point takes the field value one of two ways:
+`Fast::SFV`, required as `require "fast/sfv"`; `Fast::SFV::VERSION` is `"0.1.0"`.
 
-- a String — one field value, as the transport combined it;
-- an Array of String field lines — the field's lines, which
-  fast-sfv joins with `", "` per RFC 9651 §4.2's combining rule (a
-  Rack join conforms).
+Ruby >= 3.4, RubyGems >= 3.5.3, zero runtime dependencies.
 
-Anything else raises plain `TypeError` — a wrong type is a caller
-bug, not field content:
-
-```ruby
-Fast::SFV.parse_item(42) # raises TypeError
-Fast::SFV.parse_list([42]) # raises TypeError
-```
-
-Every serialize entry point takes the Ruby value shapes documented
-under each function below, and answers a fresh US-ASCII `String` the
-caller owns — or `nil` for an empty List or Dictionary.
+Only the module functions are public: `Parser` and `Serializer` are `private_constant`s.
 
 ## Parsing
 
-Strict: RFC 9651 §1.1 forbids tolerating malformed field content, so
-a value that is not a Structured Field Value of the asked shape
-raises `Fast::SFV::ParseError` carrying `#offset`. Results are frozen
-(see [Type mapping — RFC 9651 to Ruby](type-mapping.md)).
+- `Fast::SFV.parse_item(input) → Fast::SFV::Item` — RFC 9651 §4.2 with field_type "item"; arity 1.
+- `Fast::SFV.parse_list(input) → frozen Array[Item|InnerList]` — arity 1; empty input → `[]`.
+- `Fast::SFV.parse_dict(input) → frozen, ordered Hash[String → Item|InnerList]` — arity 1; empty input → `{}`.
 
-### `.parse_item`
+Raises: `Fast::SFV::ParseError` for malformed content; `TypeError` for a non-String/non-Array input or a non-String line.
 
-```text
-Fast::SFV.parse_item(input) -> Fast::SFV::Item
-```
-
-One RFC 9651 Item — a bare item plus its parameters — as a frozen
-`Fast::SFV::Item`.
+Input: one String field value, or the field's lines as an Array of Strings combined with `", "`; the whole value must be ASCII.
 
 ```ruby
-item = Fast::SFV.parse_item("42;a=1")
-item.value # => 42
-item.params # => {"a" => 1}
-```
+require "fast/sfv"
 
-### `.parse_list`
-
-```text
-Fast::SFV.parse_list(input) -> frozen Array of Fast::SFV::Item and Fast::SFV::InnerList
-```
-
-One RFC 9651 List as a frozen `Array`. Empty input is the empty
-list.
-
-```ruby
-list = Fast::SFV.parse_list("sugar, (1 2)")
-list.length # => 2
-list.map(&:class) # => [Fast::SFV::Item, Fast::SFV::InnerList]
-```
-
-### `.parse_dict`
-
-```text
-Fast::SFV.parse_dict(input) -> frozen, ordered Hash of String keys to Items and InnerLists
-```
-
-One RFC 9651 Dictionary as a frozen, ordered `Hash` — iteration
-order is the wire order, a duplicate key keeps its first position and
-takes its last value, and a key without `=` is the Boolean-true short
-form.
-
-```ruby
-dict = Fast::SFV.parse_dict("a=1, a=2, i")
-dict.keys # => ["a", "i"]
-dict["a"].value # => 2
-dict["i"].value # => true
+Fast::SFV.parse_item("42").value  # => 42
+Fast::SFV.parse_list("1, 2").map(&:value)  # => [1, 2]
+Fast::SFV.parse_dict("a=1").keys  # => ["a"]
 ```
 
 ## Validity predicates
 
-The same strict parses with a boolean answer that never raises —
-`false` for malformed content and for a wrong input type alike. Use
-them at trust boundaries; use the parses where failure is a bug.
-
-### `.valid_item?`
-
-```text
-Fast::SFV.valid_item?(input) -> true or false
-```
+- `Fast::SFV.valid_item?(input) → true/false` — arity 1; never raises; `false` for malformed content and wrong input types alike.
+- `Fast::SFV.valid_list?(input) → true/false` — same.
+- `Fast::SFV.valid_dict?(input) → true/false` — same.
 
 ```ruby
-Fast::SFV.valid_item?("42") # => true
-Fast::SFV.valid_item?("42 42") # => false
-```
+require "fast/sfv"
 
-### `.valid_list?`
-
-```text
-Fast::SFV.valid_list?(input) -> true or false
-```
-
-```ruby
-Fast::SFV.valid_list?("1, 42") # => true
-Fast::SFV.valid_list?("1,") # => false
-```
-
-### `.valid_dict?`
-
-```text
-Fast::SFV.valid_dict?(input) -> true or false
-```
-
-```ruby
-Fast::SFV.valid_dict?("a=1") # => true
-Fast::SFV.valid_dict?("A=1") # => false
+Fast::SFV.valid_item?("42")  # => true
+Fast::SFV.valid_item?("foo bar")  # => false
+Fast::SFV.valid_item?(42)  # => false
 ```
 
 ## Serializing
 
-Strict: a sender never puts a value on the wire that is not a
-Structured Field Value — anything non-serializable raises
-`Fast::SFV::SerializeError` carrying `#offset`, the byte offset into
-the output built so far. There is no coercion: the Ruby type of a
-value is its wire-type tag.
+- `Fast::SFV.serialize_item(item) → String` — the canonical RFC 9651 §4.1.3 form; arity 1; an Item is required.
+- `Fast::SFV.serialize_list(list) → String | nil` — RFC 9651 §4.1.1; arity 1; an Array of Items and InnerLists is required; `nil` for the empty List.
+- `Fast::SFV.serialize_dict(dict) → String | nil` — RFC 9651 §4.1.2; arity 1; an ordered Hash of String keys to Items and InnerLists is required; `nil` for the empty Dictionary.
 
-### `.serialize_item`
+Every output is a fresh, mutable US-ASCII String the caller owns; the Ruby type of a value is its wire-type tag.
 
-```text
-Fast::SFV.serialize_item(item) -> String (US-ASCII), the canonical RFC 9651 §4.1.3 form
-```
-
-One `Fast::SFV::Item` — the bare item, then its parameters. Exactly
-what `Item#to_s` answers.
+Raises: `Fast::SFV::SerializeError` (positioned; never `TypeError`) for any non-serializable input.
 
 ```ruby
-Fast::SFV.serialize_item(Fast::SFV::Item.new("foo", {})) # => "\"foo\""
-Fast::SFV.serialize_item(Fast::SFV::Item.new(Fast::SFV::Token.new("foo"), {})) # => "foo"
+require "fast/sfv"
+
+item = Fast::SFV::Item.new(42, {})
+Fast::SFV.serialize_item(item)  # => "42"
+Fast::SFV.serialize_list([])  # => nil
 ```
 
-### `.serialize_list`
+## Value classes
 
-```text
-Fast::SFV.serialize_list(list) -> String, or nil for the empty List
-```
+### Fast::SFV::Item
 
-An `Array` of Items and InnerLists — the canonical §4.1.1 form, or
-`nil` for the empty List (RFC 9651 §4.1 step 1: an empty container
-omits the field entirely).
+`attr_reader :value, :params`; `Item.new(value, params)`; frozen at construction; `#to_s` is the canonical RFC 9651 §4.1.3 wire form, identical to `serialize_item`'s answer.
 
 ```ruby
-Fast::SFV.serialize_list([Fast::SFV::Item.new(1, {}), Fast::SFV::InnerList.new([Fast::SFV::Item.new(2, {})], {})]) # => "1, (2)"
-Fast::SFV.serialize_list([]) # => nil
+require "fast/sfv"
+
+item = Fast::SFV::Item.new(42, { "a" => 1 })
+item.value  # => 42
+item.params  # => {"a"=>1}
+item.to_s  # => "42;a=1"
 ```
 
-### `.serialize_dict`
+### Fast::SFV::InnerList
 
-```text
-Fast::SFV.serialize_dict(dict) -> String, or nil for the empty Dictionary
-```
-
-An ordered `Hash` of `String` keys to Items and InnerLists — the
-canonical §4.1.2 form, in the Hash's iteration order, with a member
-whose Item value is Boolean true using the valueless short form.
+`attr_reader :items, :params`; `InnerList.new(items, params)`; frozen; `#to_s` is RFC 9651 §4.1.1.1: `"("`, items joined by single SPs, `")"`, then the list's own parameters; `"()"` for the empty list.
 
 ```ruby
-Fast::SFV.serialize_dict("a" => Fast::SFV::Item.new(1, {}), "b" => Fast::SFV::Item.new(true, {})) # => "a=1, b"
-Fast::SFV.serialize_dict({}) # => nil
+require "fast/sfv"
+
+inner = Fast::SFV::InnerList.new([Fast::SFV::Item.new(1, {}), Fast::SFV::Item.new(2, {})], { "a" => 1 })
+inner.items.map(&:value)  # => [1, 2]
+inner.params  # => {"a"=>1}
+inner.to_s  # => "(1 2);a=1"
 ```
 
-## Value objects
+### Fast::SFV::Token
 
-All five are frozen at construction, and none of them defines value
-equality — they compare by identity, so compare `#value`s (a
-`Fast::SFV::Token` is the exception: as a `String` subclass it
-compares by content).
+`Token < String`; `Token.new(content)`; validates the full token grammar (ALPHA or `*` first, then tchar/`:`/`/`) and freezes: `ArgumentError` for invalid content, `TypeError` for a non-String, no length cap (RFC 9651 §3.3.4: parsers must support tokens of at least 512 characters).
 
-### `Fast::SFV::Item`
-
-One bare item plus its parameters. `#value` is one of the eight bare
-types; `#params` is the ordered, frozen, String-keyed `Hash` the
-parser filled (empty and shared when there were none). `#to_s` is the
-canonical wire form, exactly `serialize_item`'s answer:
+String semantics inherited untouched — `==`, `eql?`, `hash`, `to_s` behave exactly as a plain String's, so a Token compares equal to the String that spells it in both directions and serves as a Hash key by content; `#inspect` is overridden to `#<Fast::SFV::Token "bar">`.
 
 ```ruby
-item = Fast::SFV::Item.new(1, { "a" => 2 })
-item.to_s # => "1;a=2"
-item.frozen? # => true
-```
+require "fast/sfv"
 
-The instance is frozen at construction; the parameter `Hash` you hand
-it is yours — a parse result's parameters are frozen, a hand-built
-Item's are the `Hash` you passed:
-
-```ruby
-Fast::SFV.parse_item("1;a=2").params.frozen? # => true
-Fast::SFV::Item.new(1, { "a" => 2 }).params.frozen? # => false
-```
-
-### `Fast::SFV::InnerList`
-
-A frozen `Array` of Items in `#items`, plus the parameters that
-belong to the list itself in `#params` — the member Items carry
-their own. `#to_s` is the canonical wire form, `"()"` for the empty
-list (only the top-level containers omit a field):
-
-```ruby
-inner = Fast::SFV::InnerList.new([Fast::SFV::Item.new(1, {})], { "a" => 1 })
-inner.to_s # => "(1);a=1"
-Fast::SFV::InnerList.new([], {}).to_s # => "()"
-```
-
-### `Fast::SFV::Date`
-
-The RFC 9651 Date type: `#value` is the `Integer` delta-seconds from
-1970-01-01T00:00:00Z. `Integer` cannot be subclassed, so the wrapper
-carries the type tag the wire round-trip needs. `#to_s` is the
-canonical wire form:
-
-```ruby
-date = Fast::SFV::Date.new(1659578233)
-date.value # => 1659578233
-date.to_s # => "@1659578233"
-```
-
-### `Fast::SFV::DisplayString`
-
-The RFC 9651 Display String type: `#value` is a frozen UTF-8
-`String` that may carry non-ASCII content. `#to_s` is the canonical
-wire form — `%"` … `"`, with `%`, DQUOTE and the control and high
-bytes percent-encoded as two lowercase hex digits:
-
-```ruby
-display = Fast::SFV::DisplayString.new("fü")
-display.value # => "fü"
-display.to_s # => "%\"f%c3%bc\""
-```
-
-### `Fast::SFV::Token`
-
-The RFC 9651 Token type: a frozen `String` subclass whose class is
-the wire-type tag. The content keeps plain String semantics — `==`,
-`eql?`, `hash` and `to_s` behave exactly as a plain String's — while
-Token-ness is what the parse and emit paths dispatch on.
-`Fast::SFV::Token.new` validates the whole token grammar
-(RFC 9651 §3.3.4: ALPHA or `*` first, then tchar, `:` and `/`) and
-raises `ArgumentError` for invalid content, `TypeError` for a
-non-String. `#inspect` names the class so debugging shows it:
-
-```ruby
 token = Fast::SFV::Token.new("bar")
-token == "bar" # => true
-"bar" == token # => true
-token.to_s # => "bar"
-token.inspect # => "#<Fast::SFV::Token \"bar\">"
-{ token => 1 }["bar"] # => 1
+token == "bar"  # => true
+"bar" == token  # => true
+{ "bar" => 1 }[token]  # => 1
+token.inspect  # => "#<Fast::SFV::Token \"bar\">"
 ```
 
+### Fast::SFV::Date
+
+`attr_reader :value` (Integer delta-seconds from 1970-01-01T00:00:00Z; Integer cannot be subclassed, so the wrapper is the type tag); `Date.new(value)`; frozen; `#to_s` is RFC 9651 §4.1.10: `"@" + integer`.
+
 ```ruby
-Fast::SFV::Token.new("1foo") # raises ArgumentError
-Fast::SFV::Token.new(1) # raises TypeError
+require "fast/sfv"
+
+date = Fast::SFV::Date.new(1_659_578_233)
+date.value  # => 1659578233
+date.to_s  # => "@1659578233"
+```
+
+### Fast::SFV::DisplayString
+
+`attr_reader :value` (the percent-decoded UTF-8 String); `DisplayString.new(value)`; frozen; `#to_s` is RFC 9651 §4.1.11.
+
+```ruby
+require "fast/sfv"
+
+ds = Fast::SFV::DisplayString.new("fü")
+ds.value  # => "fü"
+ds.to_s  # => "%\"f%c3%bc\""
 ```
 
 ## Errors
 
-`Fast::SFV::Error` is the family root — rescue it to guard the whole
-surface. Both subclasses carry `#offset` (an `Integer`) and
-`#message`.
+### Fast::SFV::Error
 
-### `Fast::SFV::ParseError`
+`< StandardError`; the family root.
 
-The field value is not a Structured Field Value of the asked shape.
-`#offset` is the byte position in the combined input where the parse
-stopped:
+### Fast::SFV::ParseError
 
-```ruby
-begin
-  Fast::SFV.parse_item("42 42")
-rescue Fast::SFV::ParseError => e
-  e.offset # => 3
-end
-```
+`< Error`; `ParseError.new(message, offset)`; `attr_reader :offset` — Integer byte position in the combined input, `0..input.bytesize`; message carries the reason. Format: `"<reason> at offset <n>"`.
 
-### `Fast::SFV::SerializeError`
+### Fast::SFV::SerializeError
 
-The value tree is not serializable. `#offset` is the byte position in
-the output built so far — the emit path never raises `TypeError`,
-because on emit the wrongness is in the value tree being sent:
+`< Error`; `SerializeError.new(message, offset)`; `attr_reader :offset` — Integer byte position in the output built so far, `0..output.bytesize`; `0` for a wrong top-level shape.
 
-```ruby
-begin
-  Fast::SFV.serialize_item(Fast::SFV::Item.new(1, { "a" => nil }))
-rescue Fast::SFV::SerializeError => e
-  e.offset # => 4
-end
-```
+## The bare item type map
 
-```ruby
-Fast::SFV.serialize_item("no") # raises Fast::SFV::SerializeError
-```
+| bare type | wire example | parse produces | serialize accepts |
+|---|---|---|---|
+| integer | `42` | `Integer` | `Integer` (±999,999,999,999,999) |
+| decimal | `-1.23` | `Float` | `Float` (finite) |
+| string | `"foo"` | frozen UTF-8 `String` | any non-ASCII-8BIT `String` |
+| token | `sugar` | `Fast::SFV::Token` | `Fast::SFV::Token` |
+| byte sequence | `:aGVsbG8=:` | frozen ASCII-8BIT `String` | `String` tagged `Encoding::ASCII_8BIT` |
+| boolean | `?1` / `?0` | `true` / `false` | `true` / `false` |
+| date | `@1659578233` | `Fast::SFV::Date` | `Fast::SFV::Date` |
+| display string | `%"f%c3%bc"` | `Fast::SFV::DisplayString` | `Fast::SFV::DisplayString` |
 
-## Frozen results
+A `Symbol` is wrong-typed input on the emit path and raises; nothing is coerced and no type is inferred from content.
 
-Everything a parse answers is deep-frozen: the `Item`s and
-`InnerList`s, the list `Array`, the ordered dictionary and parameter
-`Hashes` with their `String` keys, and every `String` the parse
-produced. A serialized answer is a fresh `String` the caller owns.
-Nothing reachable from a parse result can be mutated, so results are
-safe to share across threads without copying:
+## Immutability and ownership
 
-```ruby
-result = Fast::SFV.parse_dict("a=1")
-result.frozen? # => true
-result["a"].frozen? # => true
-result["a"].value.frozen? # => true
-```
+- Parse results are deep-frozen (containers, Items, InnerLists, Hashes, every produced String).
+- Items and inner lists without parameters share one frozen empty Hash.
+- Serialize outputs are fresh, mutable, US-ASCII, and owned by the caller.
+- Hand-built value objects freeze the instance at construction (shallowly — what you pass in stays yours); hand-built `Token`s are always whole, valid, and immutable.
 
-## Where to go next
+## Requirements
 
-- [Type mapping — RFC 9651 to Ruby](type-mapping.md) — the nine wire
-  types against the Ruby values that carry them.
-- [Parse or emit?](../how-to-guides/parse-vs-emit.md) — which entry
-  point for which side.
-- [Design decisions in fast-sfv](../explanation/design-decisions.md) —
-  why these shapes and not others.
+- Ruby >= 3.4 (CI matrix covers 3.4 and 4.0); RubyGems >= 3.5.3; no runtime dependencies.
+
+See [Conformance and the httpwg corpus](conformance.md) for the RFC coverage map.

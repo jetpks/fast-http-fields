@@ -27,7 +27,7 @@ Gem::Specification.new do |spec|
   # form that packages correctly from this directory) but resolve the
   # filter against the gemspec dir so foreign-cwd loads see the true file
   # list — and a foreign-cwd `gem build` fails LOUDLY instead of silently
-  # packaging a .gem with no lib/. (I51 judge ruling: the repo-root
+  # packaging a .gem with no lib/. (The repo-root
   # `gem build gems/sfv/…gemspec` form is RubyGems-impossible for a nested
   # monorepo gemspec — build from this directory.)
   spec.files = Dir.glob(["{lib}/**/*", "*.md"], File::FNM_DOTMATCH, base: File.expand_path(__dir__))
@@ -40,7 +40,7 @@ Gem::Specification.new do |spec|
   spec.metadata["documentation_uri"] = "https://github.com/jetpks/fast-http-fields/tree/main/gems/sfv/docs"
   spec.metadata["rubygems_mfa_required"] = "true"
 
-  # NO runtime dependencies: fast-sfv is the family substrate (BRIEF §2) —
-  # it depends on nothing; the four dependents will declare exactly
+  # NO runtime dependencies: fast-sfv is the family substrate — it
+  # depends on nothing; the four dependents will declare exactly
   # fast-sfv as their only runtime dependency.
 end

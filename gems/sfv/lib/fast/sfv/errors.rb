@@ -3,7 +3,7 @@
 module Fast
   module SFV
     # The family root: every Fast::SFV failure descends from Error, so a
-    # caller can guard the whole surface with one rescue (BRIEF §3).
+    # caller can guard the whole surface with one rescue.
     class Error < StandardError; end
 
     # The field value is not a Structured Field Value at all: the strict
