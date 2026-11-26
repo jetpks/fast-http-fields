@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0 (2026-11-26)
 
 - Fields: `Fast::Digest::ContentDigest`, `ReprDigest`, `WantContentDigest` and
   `WantReprDigest` — the four RFC 9530 fields as frozen value objects over
@@ -38,6 +38,14 @@
   fail-closed, preference parse, emit, compute, `.of`, strict parse,
   `valid?`), measured and frozen in the file's comment.
 - Scaffold: the gemspec (one runtime dependency, fast-sfv), the README
-  front door, and this changelog. The documentation pass and the 0.1.0
-  release follow (docs are part of the product — the family's release
-  rule).
+  front door, and this changelog. The documentation pass and this 0.1.0
+  release land together (docs are part of the product — the family's
+  release rule).
+- Docs: the diátaxis docs tree under `docs/` (tutorial, four how-to
+  guides, two reference pages, four explanations), the README front door
+  with the documentation index, and the both-mode performance page from
+  one measurement session (interpreter and YJIT side by side, the
+  benchmark kit alongside). Every fenced ruby example was executed as
+  printed and every RFC citation checked against the RFC text by the
+  pipeline's independent review. The gemspec metadata completes with
+  `documentation_uri` pointing at the docs tree.

@@ -42,6 +42,7 @@ Gem::Specification.new do |spec|
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = spec.homepage
   spec.metadata["changelog_uri"] = "#{spec.homepage}/blob/main/gems/digest/CHANGELOG.md"
+  spec.metadata["documentation_uri"] = "https://github.com/jetpks/fast-http-fields/tree/main/gems/digest/docs"
   spec.metadata["rubygems_mfa_required"] = "true"
 
   # Exactly one runtime dependency, unconstrained: fast-sfv is the
