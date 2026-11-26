@@ -1,0 +1,13 @@
+# frozen_string_literal: true
+
+# The harness proof: this file only runs if config/sus.rb routed
+# gems/client_cert/lib onto the load path (the require below resolves)
+# and gems/client_cert/test into the run (this file was discovered).
+require "fast/client_cert"
+
+describe Fast::ClientCert do
+  it "loads the scaffold and carries its version" do
+    expect(Fast::ClientCert).to be(:kind_of?, Module)
+    expect(Fast::ClientCert::VERSION).to be(:==, "0.1.0")
+  end
+end
