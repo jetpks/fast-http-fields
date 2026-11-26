@@ -77,7 +77,7 @@ module Fast
       # empty either way, and a bare item costs no parameter allocation.
       EMPTY_PARAMS = {}.freeze
       # The byte sequence "::" — shared for the same reason.
-      EMPTY_BYTES = String.new.freeze
+      EMPTY_BYTES = "".b.freeze
 
       # The input is one String field value, or the field's lines as an
       # Array, combined with ", " (§4.2's combining rule — a Rack join
@@ -145,16 +145,16 @@ module Fast
       end
 
       # §4.2 step 1: the whole field value must be ASCII — a byte above
-      # 0x7F fails the parse before any grammar runs.
+      # 0x7F fails the parse before any grammar runs. ascii_only? is the
+      # one-scan hot path; the walk runs only on failure, to find the
+      # offset the error reports.
       def check_ascii
+        return if @input.ascii_only?
+
         index = 0
-        while index < @end
-          if @input.getbyte(index) > 0x7F
-            @pos = index
-            fail_parse("the field value must be ASCII")
-          end
-          index += 1
-        end
+        index += 1 while @input.getbyte(index) <= 0x7F
+        @pos = index
+        fail_parse("the field value must be ASCII")
       end
 
       # §4.2 steps 6 and 7: trailing SP is fine, anything else fails.
@@ -303,7 +303,7 @@ module Fast
           end
           (params ||= {})[key] = value
         end
-        params ? params.freeze : EMPTY_PARAMS
+        (params || EMPTY_PARAMS).freeze
       end
 
       # §4.2.3.3 Parsing a Key: lcalpha or "*" first, then lcalpha, DIGIT,
@@ -453,7 +453,7 @@ module Fast
         length = data_end - start
         return EMPTY_BYTES if length.zero?
 
-        bytes = String.new
+        bytes = "".b
         index = start
         remaining = length
         while remaining >= 4
@@ -514,7 +514,7 @@ module Fast
         fail_parse("a display string must open with '%\"'") unless byte == DQUOTE
 
         @pos += 1
-        bytes = String.new
+        bytes = "".b
         while @pos < @end
           current = @input.getbyte(@pos)
           fail_parse("a display string may only carry SP and printable ASCII") if current < SP || current > 0x7E

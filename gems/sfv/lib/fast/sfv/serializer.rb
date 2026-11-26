@@ -5,7 +5,9 @@ module Fast
     # The RFC 9651 §4.1 emit path: module functions appending bytes into
     # one output String, which is the only object an emission allocates —
     # append-only, byte-index validation, no pattern machinery (the parse
-    # path's own discipline). The Ruby type of a value IS its wire-type
+    # path's own discipline). The separator loops carry a first-member
+    # flag because #each_with_index allocates (two objects per Array
+    # call, a pair Array per Hash entry) and the budgets are zero-waste. The Ruby type of a value IS its wire-type
     # tag: an Integer is an integer, a Float a decimal, a Token a token,
     # a String an sf-string unless it is tagged ASCII-8BIT, which is a
     # byte sequence — the content never decides the type, so "foo" the
@@ -31,6 +33,12 @@ module Fast
       # both wire forms share (§4.1.11 step 4.1.1).
       PERCENT = Parser::PERCENT
       DQUOTE = Parser::DQUOTE
+      # The decimal walk's sign and point, and the SP floor a string and
+      # display string validate against — the parse path's own byte
+      # constants, aliased so the emit path reads them by name.
+      HYPHEN = Parser::HYPHEN
+      PERIOD = Parser::PERIOD
+      SP = Parser::SP
       # The two bytes an sf-string escape carries a backslash for: DQUOTE
       # and backslash (§4.1.6 step 4.1) — the parse path's own class.
       STRING_ESCAPE = Parser::STRING_ESCAPE
@@ -57,14 +65,14 @@ module Fast
       # The wire form of one Item (§4.1.3) — serialize_item's answer and
       # Item#to_s: the bare item, then its parameters.
       def item_string(item)
-        output = String.new
+        output = "".b
         emit_item(output, item)
         output.force_encoding(Encoding::US_ASCII)
       end
 
       # The wire form of one Inner List (§4.1.1.1) — InnerList#to_s.
       def inner_list_string(inner_list)
-        output = String.new
+        output = "".b
         emit_inner_list(output, inner_list)
         output.force_encoding(Encoding::US_ASCII)
       end
@@ -73,17 +81,15 @@ module Fast
       # empty case never reaches here: the entry point answers nil (§4.1
       # step 1, the omitted field).
       def list_string(list)
-        output = String.new
+        output = "".b
         first = true
         list.each do |member|
-          if first
-            first = false
-          else
-            output << ", "
-          end
-          if member.is_a?(Item)
+          output << ", " unless first
+          first = false
+          case member
+          when Item
             emit_item(output, member)
-          elsif member.is_a?(InnerList)
+          when InnerList
             emit_inner_list(output, member)
           else
             fail_serialize(output, "a list member must be an Item or an InnerList (got #{shape(member)})")
@@ -95,19 +101,17 @@ module Fast
       # The wire form of one Dictionary (§4.1.2) — serialize_dict's
       # answer, with the empty case omitted by the entry point.
       def dictionary_string(dictionary)
-        output = String.new
+        output = "".b
         first = true
         dictionary.each do |key, member|
-          if first
-            first = false
-          else
-            output << ", "
-          end
+          output << ", " unless first
+          first = false
           emit_key(output, key)
-          if member.is_a?(InnerList)
+          case member
+          when InnerList
             output << "="
             emit_inner_list(output, member)
-          elsif member.is_a?(Item)
+          when Item
             if member.value.equal?(true)
               emit_parameters(output, member.params)
             else
@@ -123,7 +127,7 @@ module Fast
 
       # The wire form of one Date (§4.1.10) — Date#to_s.
       def date_string(date)
-        output = String.new
+        output = "".b
         emit_date(output, date)
         output.force_encoding(Encoding::US_ASCII)
       end
@@ -131,7 +135,7 @@ module Fast
       # The wire form of one Display String (§4.1.11) —
       # DisplayString#to_s.
       def display_string_string(display_string)
-        output = String.new
+        output = "".b
         emit_display_string(output, display_string)
         output.force_encoding(Encoding::US_ASCII)
       end
@@ -152,11 +156,8 @@ module Fast
 
         first = true
         items.each do |item|
-          if first
-            first = false
-          else
-            output << " "
-          end
+          output << " " unless first
+          first = false
           fail_serialize(output, "an inner list member must be an Item (got #{shape(item)})") unless item.is_a?(Item)
 
           emit_item(output, item)
@@ -273,7 +274,7 @@ module Fast
         text = value.to_s
         size = text.bytesize
         index = 0
-        negative = text.getbyte(0) == Parser::HYPHEN
+        negative = text.getbyte(0) == HYPHEN
         index += 1 if negative
         mantissa = 0
         while index < size && DIGIT[text.getbyte(index)]
@@ -281,7 +282,7 @@ module Fast
           index += 1
         end
         fraction = 0
-        if text.getbyte(index) == Parser::PERIOD
+        if text.getbyte(index) == PERIOD
           index += 1
           while index < size && DIGIT[text.getbyte(index)]
             mantissa = mantissa * 10 + (text.getbyte(index) - 0x30)
@@ -292,7 +293,7 @@ module Fast
         exponent = 0
         if text.getbyte(index) == EXPONENT
           index += 1
-          exponent_negative = text.getbyte(index) == Parser::HYPHEN
+          exponent_negative = text.getbyte(index) == HYPHEN
           index += 1 if exponent_negative || text.getbyte(index) == PLUS
           while index < size && DIGIT[text.getbyte(index)]
             exponent = exponent * 10 + (text.getbyte(index) - 0x30)
@@ -368,7 +369,7 @@ module Fast
             output << "\\" << byte
             start = index + 1
             escaped = true
-          elsif byte < Parser::SP || byte > 0x7E
+          elsif byte < SP || byte > 0x7E
             fail_serialize(output, "a string may only carry SP and printable ASCII")
           end
           index += 1
@@ -458,7 +459,7 @@ module Fast
         index = 0
         while index < size
           byte = text.getbyte(index)
-          if byte == PERCENT || byte == DQUOTE || byte < Parser::SP || byte > 0x7E
+          if byte == PERCENT || byte == DQUOTE || byte < SP || byte > 0x7E
             output << text.byteslice(start, index - start) if index > start
             output << "%" << HEX.getbyte(byte >> 4) << HEX.getbyte(byte & 0xF)
             start = index + 1
