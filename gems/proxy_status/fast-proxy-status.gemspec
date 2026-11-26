@@ -5,19 +5,29 @@ require_relative "lib/fast/proxy_status/version"
 Gem::Specification.new do |spec|
   spec.name = "fast-proxy-status"
   spec.version = Fast::ProxyStatus::VERSION
-  spec.summary = "RFC 9209 Proxy-Status: the HTTP response field that conveys how intermediaries handled a response."
+  spec.summary = "RFC 9209, 9211 and 9213 response fields: Proxy-Status, Cache-Status and Targeted Cache Control."
   spec.description = <<~DESC
-    Fast::ProxyStatus implements RFC 9209 Proxy-Status — the HTTP
-    response field as a frozen value object over fast-sfv: a List of
-    parameterized members, one per intermediary that handled the
-    response, the first closest to the origin server. The five
-    section 2.1 parameters with typed readers on the member value
-    object, the diagnostic leniency of RFC 9651 2.2 (a malformed field
-    is treated as absent; unknown and wrong-typed parameters are
-    preserved in the data and ignored semantically), the
+    The diagnostics gem of the family, three frozen value-object
+    classes over fast-sfv. Fast::ProxyStatus implements RFC 9209
+    Proxy-Status — the HTTP response field as a List of parameterized
+    members, one per intermediary that handled the response, the first
+    closest to the origin server, with the five section 2.1 parameters
+    as typed readers, the diagnostic leniency of RFC 9651 2.2 (a
+    malformed field is treated as absent; unknown and wrong-typed
+    parameters are preserved in the data and ignored semantically), the
     append-yourself operation, the section 2 trailer-promotion
-    algorithm, and the 32-entry section 2.3 proxy error type registry
-    as frozen data with unknown passthrough. One runtime dependency,
+    algorithm and the 32-entry section 2.3 proxy error type registry as
+    frozen data with unknown passthrough. Fast::CacheStatus implements
+    RFC 9211 Cache-Status — the same List shape, one member per cache
+    that handled the request, with the eight section 2.1-2.8 parameters
+    as typed readers, the hit/fwd exclusivity surface, the section 2.2
+    fwd value set validated on emit only, and the append-yourself
+    operation. Fast::TargetedCacheControl implements RFC 9213 Targeted
+    HTTP Cache Control — the CDN-Cache-Control Dictionary of cache
+    directives with the section 2.1 type-inference rules enforced on
+    emit, the known-directive table as data, and a violating directive
+    preserved-but-flagged on parse. The two List fields share one
+    engine, Fast::ProxyStatus::ListField. One runtime dependency,
     fast-sfv.
   DESC
 
