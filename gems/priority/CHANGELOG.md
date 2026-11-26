@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0 (2026-11-26)
 
 - Field: `Fast::Priority.parse` / `parse!` / `valid?` — the RFC 9218 §4
   recipient semantics over the Priority header field, an RFC 9651
@@ -32,5 +32,13 @@
   vectors alone).
 - Scaffold: the gemspec (one runtime dependency, fast-sfv), the
   README front door, the allocation budgets for the eight paths, and
-  this changelog. The documentation pass and the 0.1.0 release follow
-  (docs are part of the product — the family's release rule).
+  this changelog. The documentation pass and this 0.1.0 release land
+  together (docs are part of the product — the family's release rule).
+- Docs: the diátaxis docs tree under `docs/` (tutorial, four how-to
+  guides, two reference pages, three explanations), the README front
+  door with the documentation index, and the both-mode performance page
+  from one measurement session (interpreter and YJIT side by side, the
+  benchmark kit alongside). Every fenced ruby example was executed as
+  printed and every RFC citation checked against the RFC text by the
+  pipeline's independent review. The gemspec metadata completes with
+  `documentation_uri` pointing at the docs tree.
