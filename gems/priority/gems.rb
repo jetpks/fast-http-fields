@@ -30,3 +30,15 @@ group :test do
   # in both directions. Never a runtime dependency.
   gem "protocol-http2", "0.29.2"
 end
+
+group :benchmark do
+  # The timing harness (https://github.com/ruby/benchmark-ips, MIT) —
+  # stages from the same gitignored cache as the peers above; never a
+  # runtime dependency. Runs the perf page's both-mode measurements:
+  #
+  #   BUNDLE_GEMFILE=gems/priority/gems.rb bundle exec ruby \
+  #     gems/priority/benchmark/priority.rb
+  #   BUNDLE_GEMFILE=gems/priority/gems.rb bundle exec ruby --yjit \
+  #     gems/priority/benchmark/priority.rb
+  gem "benchmark-ips", "2.15.1"
+end
