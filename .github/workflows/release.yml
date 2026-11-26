@@ -46,8 +46,8 @@ jobs:
       # under this workflow, and the first-publish token exchange must
       # assert the owning account ID, GHSA-48p7-6mjr-3jjj). Each entry's
       # OWNER is dropped after that gem's first release — fast-sfv's,
-      # fast-priority's and fast-digest's are gone (0.1.1, 0.1.0, 0.1.0
-      # published).
+      # fast-priority's, fast-digest's and fast-proxy-status's are gone
+      # (0.1.1, 0.1.0, 0.1.0, 0.1.0 published).
       - name: Dispatch per-gem release map
         if: ${{ fromJSON(env.IS_TAG) }}
         run: |
@@ -88,7 +88,6 @@ jobs:
               GEMSPEC=fast-proxy-status.gemspec
               REQUIRE=fast/proxy_status
               CONSTANT=Fast::ProxyStatus
-              OWNER=231507
               ;;
             client-cert-v*)
               # Same underscore rule: gems/client_cert, fast/client_cert;
