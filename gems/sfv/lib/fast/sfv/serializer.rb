@@ -106,23 +106,29 @@ module Fast
         dictionary.each do |key, member|
           output << ", " unless first
           first = false
-          emit_key(output, key)
-          case member
-          when InnerList
-            output << "="
-            emit_inner_list(output, member)
-          when Item
-            if member.value.equal?(true)
-              emit_parameters(output, member.params)
-            else
-              output << "="
-              emit_item(output, member)
-            end
-          else
-            fail_serialize(output, "a dictionary value must be an Item or an InnerList (got #{shape(member)})")
-          end
+          emit_dictionary_member(output, key, member)
         end
         output.force_encoding(Encoding::US_ASCII)
+      end
+
+      # One dictionary entry: the key, then "=" and the member — or the
+      # valueless short form when the Item's value is Boolean true.
+      def emit_dictionary_member(output, key, member)
+        emit_key(output, key)
+        case member
+        when InnerList
+          output << "="
+          emit_inner_list(output, member)
+        when Item
+          if member.value.equal?(true)
+            emit_parameters(output, member.params)
+          else
+            output << "="
+            emit_item(output, member)
+          end
+        else
+          fail_serialize(output, "a dictionary value must be an Item or an InnerList (got #{shape(member)})")
+        end
       end
 
       # The wire form of one Date (§4.1.10) — Date#to_s.
@@ -266,7 +272,7 @@ module Fast
       # to even; at most 12 integer digits after the rounding; the
       # fraction keeps its leading zeros and drops trailing zeros, "0"
       # when it is zero. The one unavoidable temporary is the Float#to_s
-      # text the digits are read from; the walk accumulates the mantissa
+      # text the digits are read from; the scan accumulates the mantissa
       # in place, exponent form included.
       def emit_decimal(output, value)
         fail_serialize(output, "a decimal must be finite") unless value.finite?
@@ -291,32 +297,11 @@ module Fast
           end
         end
         exponent = 0
-        if text.getbyte(index) == EXPONENT
-          index += 1
-          exponent_negative = text.getbyte(index) == HYPHEN
-          index += 1 if exponent_negative || text.getbyte(index) == PLUS
-          while index < size && DIGIT[text.getbyte(index)]
-            exponent = exponent * 10 + (text.getbyte(index) - 0x30)
-            index += 1
-          end
-          exponent = -exponent if exponent_negative
-        end
+        exponent = exponent_of(text, index + 1) if text.getbyte(index) == EXPONENT
+
         scale = fraction - exponent
-        if scale > 21
-          # A factor past 10^18: the mantissa (at most 18 digits) is
-          # under half of it, so the rounding lands on zero.
-          mantissa = 0
-          scale = 3
-        elsif scale > 3
-          factor = 10**(scale - 3)
-          rounded = mantissa / factor
-          remainder = mantissa - rounded * factor
-          half = factor / 2
-          # Ties to even, on the as-written digits (§4.1.5 step 2).
-          rounded += 1 if remainder > half || (remainder == half && rounded.odd?)
-          mantissa = rounded
-          scale = 3
-        end
+        mantissa = rounded_mantissa(mantissa, scale)
+        scale = 3 if scale > 3
 
         # §4.1.5 step 3: at most 12 significant digits left of the point,
         # after the rounding — a carry may push the count over.
@@ -324,8 +309,44 @@ module Fast
         integer_digits = 1 if integer_digits < 1
         fail_serialize(output, "a decimal is at most 12 integer digits") if integer_digits > 12
 
-        # §4.1.5 steps 5-9: the sign of the rounded value, the integer
-        # component ("0" at zero), the point, then the fraction.
+        emit_decimal_components(output, negative, mantissa, scale)
+      end
+
+      # The exponent of a Float#to_s text whose "e" sits at +index+ —
+      # the sign, then the DIGITs; the text always ends there.
+      def exponent_of(text, index)
+        exponent = 0
+        negative = text.getbyte(index) == HYPHEN
+        index += 1 if negative || text.getbyte(index) == PLUS
+        while index < text.bytesize && DIGIT[text.getbyte(index)]
+          exponent = exponent * 10 + (text.getbyte(index) - 0x30)
+          index += 1
+        end
+        negative ? -exponent : exponent
+      end
+
+      # The mantissa rounded to three fraction places, ties to even on
+      # the as-written digits (§4.1.5 step 2): the digits past the third
+      # fraction place are dropped, a remainder past half carries, an
+      # exact half carries only onto an even digit. A scale past 21
+      # rounds to zero — the factor is past 10^18, and a mantissa of at
+      # most 18 digits is under half of it.
+      def rounded_mantissa(mantissa, scale)
+        return 0 if scale > 21
+        return mantissa if scale <= 3
+
+        factor = 10**(scale - 3)
+        rounded = mantissa / factor
+        remainder = mantissa - rounded * factor
+        half = factor / 2
+        rounded += 1 if remainder > half || (remainder == half && rounded.odd?)
+        rounded
+      end
+
+      # §4.1.5 steps 5-9: the sign of the rounded value, the integer
+      # component ("0" at zero), the point, then the fraction — leading
+      # zeros kept, trailing zeros dropped, "0" when it is zero.
+      def emit_decimal_components(output, negative, mantissa, scale)
         output << "-" if negative && mantissa.positive?
         if scale.negative?
           emit_digits(output, mantissa)
@@ -439,19 +460,7 @@ module Fast
       # lowercase hex digits, every other byte literal, then `"`. The
       # literal runs are appended whole when nothing needs escaping.
       def emit_display_string(output, value)
-        text = value.value
-        unless text.is_a?(String)
-          fail_serialize(output, "a display string's value must be a String (got #{shape(text)})")
-        end
-        if text.encoding != Encoding::UTF_8
-          begin
-            text = text.encode(Encoding::UTF_8)
-          rescue Encoding::UndefinedConversionError, Encoding::InvalidByteSequenceError, Encoding::ConverterNotFoundError
-            fail_serialize(output, "a display string must be Unicode text")
-          end
-        end
-        fail_serialize(output, "a display string must be Unicode text") unless text.valid_encoding?
-
+        text = display_text(output, value)
         output << "%\""
         size = text.bytesize
         start = 0
@@ -469,6 +478,25 @@ module Fast
         end
         output << (escaped ? text.byteslice(start, size - start) : text)
         output << "\""
+      end
+
+      # The display string's value as UTF-8 text — encoded when it
+      # arrives in another encoding, failed loudly when it cannot be.
+      def display_text(output, value)
+        text = value.value
+        unless text.is_a?(String)
+          fail_serialize(output, "a display string's value must be a String (got #{shape(text)})")
+        end
+        if text.encoding != Encoding::UTF_8
+          begin
+            text = text.encode(Encoding::UTF_8)
+          rescue Encoding::UndefinedConversionError, Encoding::InvalidByteSequenceError, Encoding::ConverterNotFoundError
+            fail_serialize(output, "a display string must be Unicode text")
+          end
+        end
+        fail_serialize(output, "a display string must be Unicode text") unless text.valid_encoding?
+
+        text
       end
 
       # The number of base-10 digits of +magnitude+ (1 at zero): the
