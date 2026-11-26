@@ -11,7 +11,7 @@ require "tmpdir"
 #
 # The five-gem map (gem name => [require path, VERSION constant]). The
 # constant is explicit, never camelized: camelize("sfv") is "Sfv", but the
-# module is Fast::SFV (BRIEF §2) — this map is the single place the
+# module is Fast::SFV — this map is the single place the
 # require-path/constant pairs live for the whole repo. All five entries
 # exist from day one (the generalization); the no-argument loop verifies
 # every gem that has been built into pkg/.

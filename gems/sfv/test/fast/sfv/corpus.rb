@@ -6,8 +6,8 @@ require "fast/sfv"
 # The httpwg structured-field-tests corpus, vendored byte-frozen under
 # gems/sfv/test/corpus/ (PROVENANCE.md names the source repository and the
 # cloned commit, LICENSE.md its terms). Only the 20 root parse JSONs load
-# here — serialisation-tests/ and schema/ belong to the serialization
-# iteration and stay inert. The corpus is read-only to this harness.
+# here — serialisation-tests/ is loaded by serialisation.rb and
+# schema/ stays inert. The corpus is read-only to this harness.
 CORPUS_FILES = Dir.glob(File.expand_path("../../corpus/*.json", __dir__)).sort
 CORPUS = CORPUS_FILES.to_h { |path| [File.basename(path, ".json"), JSON.parse(File.read(path))] }
 CORPUS_RECORDS = CORPUS.values.flatten

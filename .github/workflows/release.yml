@@ -41,7 +41,7 @@ jobs:
       # bare `v*` tag has no legacy path: fail loudly, naming the
       # convention.
       #
-      # First publish (BRIEF §8): every entry carries OWNER=231507 —
+      # First publish: every entry carries OWNER=231507 —
       # rubygems.org trusted publishers are configured for all five gems
       # under this workflow, and the first-publish token exchange must
       # assert the owning account ID (GHSA-48p7-6mjr-3jjj). Each entry's
@@ -127,7 +127,7 @@ jobs:
             echo "OWNER=$OWNER"
           } >> "$GITHUB_ENV"
 
-      # Monorepo (I51 judge ruling): a nested gemspec is unbuildable from
+      # Monorepo: a nested gemspec is unbuildable from
       # the repo root — `gem build` runs INSIDE the gem's directory.
       - name: Build gem
         if: ${{ fromJSON(env.IS_TAG) }}

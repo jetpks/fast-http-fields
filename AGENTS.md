@@ -29,8 +29,8 @@ ruby script/verify-packaged.rb fast-sfv       # packaged-gem verify: isolated GE
 - 2-space indentation; `# frozen_string_literal: true` on every source
   file; double-quoted strings.
 - Pure Ruby, no runtime dependencies (fast-sfv is the substrate; the
-  four dependents declare it as their only runtime dependency — BRIEF
-  strictness, stdlib `digest` aside).
+  four dependents declare it as their only runtime dependency —
+  stdlib `digest` aside).
 - Hand-rolled byte-index scanners on the hot path (no regex-per-token);
   frozen immutable value objects.
 

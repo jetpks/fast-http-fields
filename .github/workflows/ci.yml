@@ -63,13 +63,13 @@ jobs:
           tail -20 /tmp/rubocop.log >> "$GITHUB_STEP_SUMMARY" || true
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
-  # Monorepo guard (I51 judge ruling): a nested gemspec CANNOT be built
+  # Monorepo guard: a nested gemspec CANNOT be built
   # from the repo root ("gem build gems/<gem>/…gemspec" is
   # RubyGems-impossible — Dir.glob base + invocation-cwd validation), and a
-  # root-level suite run never exercises packaging. The loop — not a
-  # hardcoded list — is the guard: every directory under gems/* carrying a
+  # root-level suite run never exercises packaging. The guard is dynamic,
+  # not a hardcoded list: every directory under gems/* carrying a
   # gemspec is built from its own directory (the cd lives in the run
-  # script; working-directory cannot carry a per-iteration dir) and the
+  # script; working-directory cannot carry a per-gem dir) and the
   # package must carry its require path lib/fast/<gem>/ (dir name = require
   # leaf, underscored: gems/proxy_status → lib/fast/proxy_status/). The
   # NEXT gem needs no ci.yml edit.
