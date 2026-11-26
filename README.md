@@ -15,7 +15,7 @@ Field Value).
 | [`gems/priority`](gems/priority/README.md) — `fast-priority` (`Fast::Priority`) | RFC 9218 | implemented |
 | [`gems/digest`](gems/digest/README.md) — `fast-digest` (`Fast::Digest`) | RFC 9530 | implemented |
 | [`gems/proxy_status`](gems/proxy_status/README.md) — `fast-proxy-status` (`Fast::ProxyStatus`, `Fast::CacheStatus`, `Fast::TargetedCacheControl`) | RFC 9209, 9211, 9213 | in progress |
-| `gems/client_cert` — `fast-client-cert` (`Fast::ClientCert`) | RFC 9440 | planned |
+| [`gems/client_cert`](gems/client_cert/README.md) — `fast-client-cert` (`Fast::ClientCert`) | RFC 9440 | in progress |
 
 The remaining gems are built in dependency order
 (fast-sfv first — it must be published before the dependents can

@@ -42,10 +42,10 @@ MALFORMED_SAMPLE = "!!"
 MEMBER_FALL_SAMPLE = "ExampleCDN, 5"
 PROMOTE_HEADER = "SomeOtherProxy, ThisProxy"        # the RFC 9209 §2 trailer example
 PROMOTE_TRAILER = "ThisProxy; error=read_timeout"
-CACHE_TWO_LAYER = 'OriginCache; hit; ttl=1100, "CDN Company Here"; hit; ttl=545'  # the RFC 9211 §3 two-layer example
+CACHE_TWO_LAYER = 'OriginCache; hit; ttl=1100, "CDN Company Here"; hit; ttl=545' # the RFC 9211 §3 two-layer example
 CACHE_THREE_LINES = ["ReverseProxyCache; hit",
                      "ForwardProxyCache; fwd=uri-miss; collapsed; stored",
-                     "BrowserCache; fwd=uri-miss"]  # the RFC 9211 §3 three-layer example
+                     "BrowserCache; fwd=uri-miss"].freeze # the RFC 9211 §3 three-layer example
 CACHE_SAMPLE = "ExampleCache; hit; ttl=376"         # the RFC 9211 §3 polite-cache example
 DIRECTIVE_SAMPLE = "max-age=600, no-store"          # the RFC 9213 §3.1 directive values
 FLAGGED_SAMPLE = "max-age=60.5"                     # a Decimal where the §2.1 mapping says Integer
