@@ -18,15 +18,18 @@ The hot path is the family substrate — every fast-http-fields field operation 
 
 ## The benchmark
 
-Measured with:
+Measured in both runtime modes — the plain interpreter (the no-JIT floor) and YJIT (the compiling runtime, the common production configuration):
 
 ```sh
 BUNDLE_GEMFILE=gems/sfv/gems.rb bundle exec ruby gems/sfv/benchmark/sfv.rb
+BUNDLE_GEMFILE=gems/sfv/gems.rb bundle exec ruby --yjit gems/sfv/benchmark/sfv.rb
 ```
 
-Full mode: 5 s timed + 1 s warmup per operation. Pins: benchmark-ips 2.15.1, starry 0.2.0.
+Full mode: 5 s timed + 1 s warmup per operation, both modes. Pins: benchmark-ips 2.15.1, starry 0.2.0.
 
 starry is the RFC 8941 reference implementation — a reference comparison, not a ranking; the numbers hold fast-sfv to its own budgets (the objects/call column); the compared surface is the RFC 8941 subset both libraries implement. starry is a dev-only comparator in the benchmark bundle, never a runtime dependency.
+
+Interpreter mode:
 
 ```
 ruby 4.0.10 (2026-11-19 revision a704b7cd95) +PRISM [arm64-darwin25]; fast-sfv 0.1.0; starry 0.2.0
@@ -35,18 +38,49 @@ starry is the RFC 8941 reference implementation: a reference comparison, not a r
 
 | operation | i/s | ±% | objects/call |
 |---|---|---|---|
-| Fast::SFV.parse_item | 256,512 | 0.32 | 5.00 |
-| Starry.parse_item | 372,415 | 1.53 | 26.00 |
-| Fast::SFV.parse_list | 196,372 | 0.76 | 14.00 |
-| Starry.parse_list | 128,936 | 0.59 | 81.00 |
-| Fast::SFV.parse_dict | 206,385 | 0.23 | 15.00 |
-| Starry.parse_dictionary | 132,976 | 0.71 | 74.00 |
-| Fast::SFV.serialize_item | 385,304 | 0.96 | 1.00 |
-| Starry.serialize (item) | 860,584 | 0.66 | 13.00 |
-| Fast::SFV.serialize_list | 305,603 | 0.94 | 1.00 |
-| Starry.serialize (list) | 307,692 | 0.41 | 50.00 |
-| Fast::SFV.serialize_dict | 288,044 | 0.78 | 1.00 |
-| Starry.serialize (dictionary) | 264,210 | 0.61 | 49.00 |
+| Fast::SFV.parse_item | 256,591 | 0.86 | 5.00 |
+| Starry.parse_item | 379,186 | 1.10 | 26.00 |
+| Fast::SFV.parse_list | 197,013 | 0.70 | 14.00 |
+| Starry.parse_list | 130,454 | 0.69 | 81.00 |
+| Fast::SFV.parse_dict | 207,450 | 0.42 | 15.00 |
+| Starry.parse_dictionary | 133,467 | 0.51 | 74.00 |
+| Fast::SFV.serialize_item | 381,765 | 0.86 | 1.00 |
+| Starry.serialize (item) | 861,390 | 0.57 | 13.00 |
+| Fast::SFV.serialize_list | 305,404 | 0.79 | 1.00 |
+| Starry.serialize (list) | 310,671 | 0.88 | 50.00 |
+| Fast::SFV.serialize_dict | 287,994 | 0.65 | 1.00 |
+| Starry.serialize (dictionary) | 263,997 | 0.46 | 49.00 |
+
+YJIT mode:
+
+```
+ruby 4.0.10 (2026-11-19 revision a704b7cd95) +YJIT +PRISM [arm64-darwin25]; fast-sfv 0.1.0; starry 0.2.0
+starry is the RFC 8941 reference implementation: a reference comparison, not a ranking.
+```
+
+| operation | i/s | ±% | objects/call |
+|---|---|---|---|
+| Fast::SFV.parse_item | 1,669,457 | 1.44 | 5.00 |
+| Starry.parse_item | 520,315 | 0.45 | 26.00 |
+| Fast::SFV.parse_list | 962,235 | 1.56 | 14.00 |
+| Starry.parse_list | 181,733 | 0.47 | 81.00 |
+| Fast::SFV.parse_dict | 917,566 | 1.34 | 15.00 |
+| Starry.parse_dictionary | 183,649 | 0.44 | 74.00 |
+| Fast::SFV.serialize_item | 2,273,364 | 2.01 | 1.00 |
+| Starry.serialize (item) | 1,199,315 | 2.02 | 13.00 |
+| Fast::SFV.serialize_list | 1,338,120 | 1.67 | 1.00 |
+| Starry.serialize (list) | 412,648 | 0.72 | 50.00 |
+| Fast::SFV.serialize_dict | 1,137,621 | 1.59 | 1.00 |
+| Starry.serialize (dictionary) | 359,093 | 0.62 | 49.00 |
+
+Reading the two tables: in the interpreter, per-byte scanning pays Ruby
+VM dispatch on every byte, so starry — whose StringScanner regexes
+consume whole tokens in C — takes the two item-shaped cells, where most
+of the sample is one long string. With YJIT the scanner loops compile to
+machine code and every cell is ahead, by 1.9× to 5.3× on these samples.
+The objects/call column is identical in both modes — allocation counts
+are mode-independent — and it is the column fast-sfv holds itself to;
+i/s is indicative.
 
 Benchmark samples: item `"2;foourl=\"https://foo.example.com/\""`, list `"(\"foo\" \"bar\");a=1, sugar, 42"`, dictionary `"a=1, b;foo=bar, c=(1 2)"`.
 
@@ -54,7 +88,7 @@ Caveats:
 
 - benchmark-ips timings vary run to run (the ±% column) and across machines — the i/s column is indicative, not contractual.
 - objects/call is deterministic: one settled call's object count with GC disabled over a 10,000-call batch — it is the column fast-sfv holds itself to.
-- The ruby/platform banner above names the measured environment; numbers are from that ruby.
+- The ruby/platform banner above each table names the measured environment; both modes ran on the same machine and ruby build in one session, and YJIT compiles during the warmup phase, so its table reports compiled throughput.
 - starry is the RFC 8941 reference implementation; the compared surface is the RFC 8941 subset both libraries implement.
 
 ## The allocation budgets
@@ -100,12 +134,12 @@ Benchmark:
 ```sh
 BUNDLE_GEMFILE=gems/sfv/gems.rb bundle install --local
 BUNDLE_GEMFILE=gems/sfv/gems.rb bundle exec ruby gems/sfv/benchmark/sfv.rb
+BUNDLE_GEMFILE=gems/sfv/gems.rb bundle exec ruby --yjit gems/sfv/benchmark/sfv.rb
 ```
 
 Quick mode for sanity-check (0.5 s time / 0.2 s warmup, not for publishing):
 
 ```sh
-BUNDLE_GEMFILE=gems/sfv/gems.rb bundle exec ruby gems/sfv/benchmark/sfv.rb
 BENCH_QUICK=1 BUNDLE_GEMFILE=gems/sfv/gems.rb bundle exec ruby gems/sfv/benchmark/sfv.rb
 ```
 
