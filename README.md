@@ -14,10 +14,10 @@ Field Value).
 | [`gems/sfv`](gems/sfv/README.md) — `fast-sfv` (`Fast::SFV`) | RFC 9651 (8941 is the documented subset) | 0.1.0 |
 | [`gems/priority`](gems/priority/README.md) — `fast-priority` (`Fast::Priority`) | RFC 9218 | implemented |
 | [`gems/digest`](gems/digest/README.md) — `fast-digest` (`Fast::Digest`) | RFC 9530 | implemented |
-| `gems/proxy_status` — `fast-proxy-status` (`Fast::ProxyStatus`, `Fast::CacheStatus`, `Fast::TargetedCacheControl`) | RFC 9209, 9211, 9213 | planned |
+| [`gems/proxy_status`](gems/proxy_status/README.md) — `fast-proxy-status` (`Fast::ProxyStatus`, `Fast::CacheStatus`, `Fast::TargetedCacheControl`) | RFC 9209, 9211, 9213 | in progress |
 | `gems/client_cert` — `fast-client-cert` (`Fast::ClientCert`) | RFC 9440 | planned |
 
-The two "planned" gems are built in dependency order
+The remaining gems are built in dependency order
 (fast-sfv first — it must be published before the dependents can
 package). The machinery (CI, release dispatch map, packaging verify,
 test harness) covers all five from day one; a new gem directory needs

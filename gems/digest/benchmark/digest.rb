@@ -32,7 +32,7 @@
 require "benchmark/ips"
 require_relative "../lib/fast/digest"
 
-INTEGRITY_SAMPLE = "sha-256=:RK/0qy18MlBSVnWgjwz6lZEWjP/lF5HF9bvEF8FabDg=:"  # the Appendix B.1 example
+INTEGRITY_SAMPLE = "sha-256=:RK/0qy18MlBSVnWgjwz6lZEWjP/lF5HF9bvEF8FabDg=:" # the Appendix B.1 example
 MALFORMED_SAMPLE = "!!"
 PREFERENCE_SAMPLE = "sha-512=3, sha-256=10, unixsum=0"
 COMPUTE_BODY = "the bytes to hash"
