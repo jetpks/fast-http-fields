@@ -45,9 +45,10 @@ jobs:
       # (rubygems.org trusted publishers are configured for the gems
       # under this workflow, and the first-publish token exchange must
       # assert the owning account ID, GHSA-48p7-6mjr-3jjj). Each entry's
-      # OWNER is dropped after that gem's first release — fast-sfv's,
-      # fast-priority's, fast-digest's and fast-proxy-status's are gone
-      # (0.1.1, 0.1.0, 0.1.0, 0.1.0 published).
+      # OWNER is dropped after that gem's first release — all five are
+      # gone (sfv 0.1.1, priority 0.1.0, digest 0.1.0, proxy-status 0.1.0,
+      # client-cert 0.1.0 published); every tag path takes the stock
+      # keyless OIDC credential exchange.
       - name: Dispatch per-gem release map
         if: ${{ fromJSON(env.IS_TAG) }}
         run: |
@@ -98,7 +99,6 @@ jobs:
               GEMSPEC=fast-client-cert.gemspec
               REQUIRE=fast/client_cert
               CONSTANT=Fast::ClientCert
-              OWNER=231507
               ;;
             v*)
               echo "::error::Bare v* tags are retired: this monorepo releases per gem — use sfv-v<semver>, priority-v<semver>, digest-v<semver>, proxy-status-v<semver>, or client-cert-v<semver> (e.g. sfv-v0.1.0)"
