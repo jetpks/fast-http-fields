@@ -5,7 +5,9 @@ module Fast
     # The RFC 9651 §4.1 emit path: module functions appending bytes into
     # one output String, which is the only object an emission allocates —
     # append-only, byte-index validation, no pattern machinery (the parse
-    # path's own discipline). The Ruby type of a value IS its wire-type
+    # path's own discipline). The separator loops carry a first-member
+    # flag because #each_with_index allocates (two objects per Array
+    # call, a pair Array per Hash entry) and the budgets are zero-waste. The Ruby type of a value IS its wire-type
     # tag: an Integer is an integer, a Float a decimal, a Token a token,
     # a String an sf-string unless it is tagged ASCII-8BIT, which is a
     # byte sequence — the content never decides the type, so "foo" the
@@ -31,6 +33,12 @@ module Fast
       # both wire forms share (§4.1.11 step 4.1.1).
       PERCENT = Parser::PERCENT
       DQUOTE = Parser::DQUOTE
+      # The decimal walk's sign and point, and the SP floor a string and
+      # display string validate against — the parse path's own byte
+      # constants, aliased so the emit path reads them by name.
+      HYPHEN = Parser::HYPHEN
+      PERIOD = Parser::PERIOD
+      SP = Parser::SP
       # The two bytes an sf-string escape carries a backslash for: DQUOTE
       # and backslash (§4.1.6 step 4.1) — the parse path's own class.
       STRING_ESCAPE = Parser::STRING_ESCAPE
@@ -57,14 +65,14 @@ module Fast
       # The wire form of one Item (§4.1.3) — serialize_item's answer and
       # Item#to_s: the bare item, then its parameters.
       def item_string(item)
-        output = String.new
+        output = "".b
         emit_item(output, item)
         output.force_encoding(Encoding::US_ASCII)
       end
 
       # The wire form of one Inner List (§4.1.1.1) — InnerList#to_s.
       def inner_list_string(inner_list)
-        output = String.new
+        output = "".b
         emit_inner_list(output, inner_list)
         output.force_encoding(Encoding::US_ASCII)
       end
@@ -73,17 +81,15 @@ module Fast
       # empty case never reaches here: the entry point answers nil (§4.1
       # step 1, the omitted field).
       def list_string(list)
-        output = String.new
+        output = "".b
         first = true
         list.each do |member|
-          if first
-            first = false
-          else
-            output << ", "
-          end
-          if member.is_a?(Item)
+          output << ", " unless first
+          first = false
+          case member
+          when Item
             emit_item(output, member)
-          elsif member.is_a?(InnerList)
+          when InnerList
             emit_inner_list(output, member)
           else
             fail_serialize(output, "a list member must be an Item or an InnerList (got #{shape(member)})")
@@ -95,35 +101,39 @@ module Fast
       # The wire form of one Dictionary (§4.1.2) — serialize_dict's
       # answer, with the empty case omitted by the entry point.
       def dictionary_string(dictionary)
-        output = String.new
+        output = "".b
         first = true
         dictionary.each do |key, member|
-          if first
-            first = false
-          else
-            output << ", "
-          end
-          emit_key(output, key)
-          if member.is_a?(InnerList)
-            output << "="
-            emit_inner_list(output, member)
-          elsif member.is_a?(Item)
-            if member.value.equal?(true)
-              emit_parameters(output, member.params)
-            else
-              output << "="
-              emit_item(output, member)
-            end
-          else
-            fail_serialize(output, "a dictionary value must be an Item or an InnerList (got #{shape(member)})")
-          end
+          output << ", " unless first
+          first = false
+          emit_dictionary_member(output, key, member)
         end
         output.force_encoding(Encoding::US_ASCII)
       end
 
+      # One dictionary entry: the key, then "=" and the member — or the
+      # valueless short form when the Item's value is Boolean true.
+      def emit_dictionary_member(output, key, member)
+        emit_key(output, key)
+        case member
+        when InnerList
+          output << "="
+          emit_inner_list(output, member)
+        when Item
+          if member.value.equal?(true)
+            emit_parameters(output, member.params)
+          else
+            output << "="
+            emit_item(output, member)
+          end
+        else
+          fail_serialize(output, "a dictionary value must be an Item or an InnerList (got #{shape(member)})")
+        end
+      end
+
       # The wire form of one Date (§4.1.10) — Date#to_s.
       def date_string(date)
-        output = String.new
+        output = "".b
         emit_date(output, date)
         output.force_encoding(Encoding::US_ASCII)
       end
@@ -131,7 +141,7 @@ module Fast
       # The wire form of one Display String (§4.1.11) —
       # DisplayString#to_s.
       def display_string_string(display_string)
-        output = String.new
+        output = "".b
         emit_display_string(output, display_string)
         output.force_encoding(Encoding::US_ASCII)
       end
@@ -152,11 +162,8 @@ module Fast
 
         first = true
         items.each do |item|
-          if first
-            first = false
-          else
-            output << " "
-          end
+          output << " " unless first
+          first = false
           fail_serialize(output, "an inner list member must be an Item (got #{shape(item)})") unless item.is_a?(Item)
 
           emit_item(output, item)
@@ -265,7 +272,7 @@ module Fast
       # to even; at most 12 integer digits after the rounding; the
       # fraction keeps its leading zeros and drops trailing zeros, "0"
       # when it is zero. The one unavoidable temporary is the Float#to_s
-      # text the digits are read from; the walk accumulates the mantissa
+      # text the digits are read from; the scan accumulates the mantissa
       # in place, exponent form included.
       def emit_decimal(output, value)
         fail_serialize(output, "a decimal must be finite") unless value.finite?
@@ -273,7 +280,7 @@ module Fast
         text = value.to_s
         size = text.bytesize
         index = 0
-        negative = text.getbyte(0) == Parser::HYPHEN
+        negative = text.getbyte(0) == HYPHEN
         index += 1 if negative
         mantissa = 0
         while index < size && DIGIT[text.getbyte(index)]
@@ -281,7 +288,7 @@ module Fast
           index += 1
         end
         fraction = 0
-        if text.getbyte(index) == Parser::PERIOD
+        if text.getbyte(index) == PERIOD
           index += 1
           while index < size && DIGIT[text.getbyte(index)]
             mantissa = mantissa * 10 + (text.getbyte(index) - 0x30)
@@ -290,32 +297,11 @@ module Fast
           end
         end
         exponent = 0
-        if text.getbyte(index) == EXPONENT
-          index += 1
-          exponent_negative = text.getbyte(index) == Parser::HYPHEN
-          index += 1 if exponent_negative || text.getbyte(index) == PLUS
-          while index < size && DIGIT[text.getbyte(index)]
-            exponent = exponent * 10 + (text.getbyte(index) - 0x30)
-            index += 1
-          end
-          exponent = -exponent if exponent_negative
-        end
+        exponent = exponent_of(text, index + 1) if text.getbyte(index) == EXPONENT
+
         scale = fraction - exponent
-        if scale > 21
-          # A factor past 10^18: the mantissa (at most 18 digits) is
-          # under half of it, so the rounding lands on zero.
-          mantissa = 0
-          scale = 3
-        elsif scale > 3
-          factor = 10**(scale - 3)
-          rounded = mantissa / factor
-          remainder = mantissa - rounded * factor
-          half = factor / 2
-          # Ties to even, on the as-written digits (§4.1.5 step 2).
-          rounded += 1 if remainder > half || (remainder == half && rounded.odd?)
-          mantissa = rounded
-          scale = 3
-        end
+        mantissa = rounded_mantissa(mantissa, scale)
+        scale = 3 if scale > 3
 
         # §4.1.5 step 3: at most 12 significant digits left of the point,
         # after the rounding — a carry may push the count over.
@@ -323,8 +309,44 @@ module Fast
         integer_digits = 1 if integer_digits < 1
         fail_serialize(output, "a decimal is at most 12 integer digits") if integer_digits > 12
 
-        # §4.1.5 steps 5-9: the sign of the rounded value, the integer
-        # component ("0" at zero), the point, then the fraction.
+        emit_decimal_components(output, negative, mantissa, scale)
+      end
+
+      # The exponent of a Float#to_s text whose "e" sits at +index+ —
+      # the sign, then the DIGITs; the text always ends there.
+      def exponent_of(text, index)
+        exponent = 0
+        negative = text.getbyte(index) == HYPHEN
+        index += 1 if negative || text.getbyte(index) == PLUS
+        while index < text.bytesize && DIGIT[text.getbyte(index)]
+          exponent = exponent * 10 + (text.getbyte(index) - 0x30)
+          index += 1
+        end
+        negative ? -exponent : exponent
+      end
+
+      # The mantissa rounded to three fraction places, ties to even on
+      # the as-written digits (§4.1.5 step 2): the digits past the third
+      # fraction place are dropped, a remainder past half carries, an
+      # exact half carries only onto an even digit. A scale past 21
+      # rounds to zero — the factor is past 10^18, and a mantissa of at
+      # most 18 digits is under half of it.
+      def rounded_mantissa(mantissa, scale)
+        return 0 if scale > 21
+        return mantissa if scale <= 3
+
+        factor = 10**(scale - 3)
+        rounded = mantissa / factor
+        remainder = mantissa - rounded * factor
+        half = factor / 2
+        rounded += 1 if remainder > half || (remainder == half && rounded.odd?)
+        rounded
+      end
+
+      # §4.1.5 steps 5-9: the sign of the rounded value, the integer
+      # component ("0" at zero), the point, then the fraction — leading
+      # zeros kept, trailing zeros dropped, "0" when it is zero.
+      def emit_decimal_components(output, negative, mantissa, scale)
         output << "-" if negative && mantissa.positive?
         if scale.negative?
           emit_digits(output, mantissa)
@@ -368,7 +390,7 @@ module Fast
             output << "\\" << byte
             start = index + 1
             escaped = true
-          elsif byte < Parser::SP || byte > 0x7E
+          elsif byte < SP || byte > 0x7E
             fail_serialize(output, "a string may only carry SP and printable ASCII")
           end
           index += 1
@@ -438,6 +460,29 @@ module Fast
       # lowercase hex digits, every other byte literal, then `"`. The
       # literal runs are appended whole when nothing needs escaping.
       def emit_display_string(output, value)
+        text = display_text(output, value)
+        output << "%\""
+        size = text.bytesize
+        start = 0
+        escaped = false
+        index = 0
+        while index < size
+          byte = text.getbyte(index)
+          if byte == PERCENT || byte == DQUOTE || byte < SP || byte > 0x7E
+            output << text.byteslice(start, index - start) if index > start
+            output << "%" << HEX.getbyte(byte >> 4) << HEX.getbyte(byte & 0xF)
+            start = index + 1
+            escaped = true
+          end
+          index += 1
+        end
+        output << (escaped ? text.byteslice(start, size - start) : text)
+        output << "\""
+      end
+
+      # The display string's value as UTF-8 text — encoded when it
+      # arrives in another encoding, failed loudly when it cannot be.
+      def display_text(output, value)
         text = value.value
         unless text.is_a?(String)
           fail_serialize(output, "a display string's value must be a String (got #{shape(text)})")
@@ -451,23 +496,7 @@ module Fast
         end
         fail_serialize(output, "a display string must be Unicode text") unless text.valid_encoding?
 
-        output << "%\""
-        size = text.bytesize
-        start = 0
-        escaped = false
-        index = 0
-        while index < size
-          byte = text.getbyte(index)
-          if byte == PERCENT || byte == DQUOTE || byte < Parser::SP || byte > 0x7E
-            output << text.byteslice(start, index - start) if index > start
-            output << "%" << HEX.getbyte(byte >> 4) << HEX.getbyte(byte & 0xF)
-            start = index + 1
-            escaped = true
-          end
-          index += 1
-        end
-        output << (escaped ? text.byteslice(start, size - start) : text)
-        output << "\""
+        text
       end
 
       # The number of base-10 digits of +magnitude+ (1 at zero): the

@@ -77,7 +77,7 @@ module Fast
       # empty either way, and a bare item costs no parameter allocation.
       EMPTY_PARAMS = {}.freeze
       # The byte sequence "::" — shared for the same reason.
-      EMPTY_BYTES = String.new.freeze
+      EMPTY_BYTES = "".b.freeze
 
       # The input is one String field value, or the field's lines as an
       # Array, combined with ", " (§4.2's combining rule — a Rack join
@@ -145,16 +145,16 @@ module Fast
       end
 
       # §4.2 step 1: the whole field value must be ASCII — a byte above
-      # 0x7F fails the parse before any grammar runs.
+      # 0x7F fails the parse before any grammar runs. ascii_only? is the
+      # one-scan hot path; the walk runs only on failure, to find the
+      # offset the error reports.
       def check_ascii
+        return if @input.ascii_only?
+
         index = 0
-        while index < @end
-          if @input.getbyte(index) > 0x7F
-            @pos = index
-            fail_parse("the field value must be ASCII")
-          end
-          index += 1
-        end
+        index += 1 while @input.getbyte(index) <= 0x7F
+        @pos = index
+        fail_parse("the field value must be ASCII")
       end
 
       # §4.2 steps 6 and 7: trailing SP is fine, anything else fails.
@@ -303,7 +303,7 @@ module Fast
           end
           (params ||= {})[key] = value
         end
-        params ? params.freeze : EMPTY_PARAMS
+        (params || EMPTY_PARAMS).freeze
       end
 
       # §4.2.3.3 Parsing a Key: lcalpha or "*" first, then lcalpha, DIGIT,
@@ -320,7 +320,8 @@ module Fast
 
       # §4.2.4 Parsing an Integer or Decimal: an optional "-", then DIGITs
       # with at most one "." — 12 integer digits and 3 fraction digits when
-      # decimal, 15 digits when integer, 16 characters in all.
+      # decimal, 15 digits when integer, 16 characters in all. The scan
+      # walks the digits; #number_magnitude applies the limits and converts.
       def parse_number
         negative = byte == HYPHEN
         @pos += 1 if negative
@@ -342,19 +343,25 @@ module Fast
           end
         end
 
-        magnitude = nil
+        magnitude = number_magnitude(start, period)
+        negative ? -magnitude : magnitude
+      end
+
+      # The magnitude the scanned digits spell, limits applied: a Float
+      # when a period was walked (to_f on the whole literal), the
+      # in-place Integer otherwise.
+      def number_magnitude(start, period)
         if period
           fail_parse("a decimal is at most 16 characters") if @pos - start > 16
           fail_parse("a decimal must end with a fraction digit") if @pos - period == 1
           fail_parse("a decimal carries at most 3 fraction digits") if @pos - period > 4
 
-          magnitude = @input.byteslice(start, @pos - start).to_f
+          @input.byteslice(start, @pos - start).to_f
         else
           fail_parse("an integer is at most 15 digits") if @pos - start > 15
 
-          magnitude = integer_from(start)
+          integer_from(start)
         end
-        negative ? -magnitude : magnitude
       end
 
       # The integer the DIGIT bytes from +start+ to @pos spell, accumulated
@@ -430,6 +437,15 @@ module Fast
         # must be that trailing "=" run and nothing else.
         data_end = start
         data_end += 1 while data_end < close && @input.getbyte(data_end) != EQUALS
+        validate_base64(start, data_end, close)
+
+        @pos = close + 1
+        decode_bytes(start, data_end)
+      end
+
+      # The characters in start...data_end must be base64, the rest of
+      # the run up to +close+ the trailing "=" pad and nothing else.
+      def validate_base64(start, data_end, close)
         index = start
         while index < data_end
           fail_parse("a byte sequence may only carry base64 characters") unless B64[@input.getbyte(index)]
@@ -441,9 +457,6 @@ module Fast
 
           index += 1
         end
-
-        @pos = close + 1
-        decode_bytes(start, data_end)
       end
 
       # §4.2.7 step 7: the base64 decode of the data characters with the
@@ -453,14 +466,11 @@ module Fast
         length = data_end - start
         return EMPTY_BYTES if length.zero?
 
-        bytes = String.new
+        bytes = "".b
         index = start
         remaining = length
         while remaining >= 4
-          value = (B64_VALUE[@input.getbyte(index)] << 18) |
-                  (B64_VALUE[@input.getbyte(index + 1)] << 12) |
-                  (B64_VALUE[@input.getbyte(index + 2)] << 6) |
-                  B64_VALUE[@input.getbyte(index + 3)]
+          value = group_value(index, 4)
           bytes << (value >> 16) << ((value >> 8) & 0xFF) << (value & 0xFF)
           index += 4
           remaining -= 4
@@ -468,17 +478,25 @@ module Fast
 
         case remaining
         when 2
-          value = (B64_VALUE[@input.getbyte(index)] << 18) | (B64_VALUE[@input.getbyte(index + 1)] << 12)
-          bytes << (value >> 16)
+          bytes << (group_value(index, 2) >> 16)
         when 3
-          value = (B64_VALUE[@input.getbyte(index)] << 18) |
-                  (B64_VALUE[@input.getbyte(index + 1)] << 12) |
-                  (B64_VALUE[@input.getbyte(index + 2)] << 6)
+          value = group_value(index, 3)
           bytes << (value >> 16) << ((value >> 8) & 0xFF)
         when 1
           fail_parse("a byte sequence may not end with a single base64 character")
         end
         bytes.freeze
+      end
+
+      # The 24-bit value of the +count+ base64 characters at +index+ —
+      # four characters, or the trailing pair or triple with the
+      # missing low places zero.
+      def group_value(index, count)
+        value = B64_VALUE[@input.getbyte(index)] << 18
+        value |= B64_VALUE[@input.getbyte(index + 1)] << 12 if count > 1
+        value |= B64_VALUE[@input.getbyte(index + 2)] << 6 if count > 2
+        value |= B64_VALUE[@input.getbyte(index + 3)] if count > 3
+        value
       end
 
       # §4.2.8 Parsing a Boolean: exactly "?1" or "?0". The dispatch has
@@ -514,7 +532,17 @@ module Fast
         fail_parse("a display string must open with '%\"'") unless byte == DQUOTE
 
         @pos += 1
-        bytes = String.new
+        bytes = display_string_bytes
+        text = bytes.force_encoding(Encoding::UTF_8)
+        fail_parse("a display string must be valid UTF-8") unless text.valid_encoding?
+
+        DisplayString.new(text.freeze)
+      end
+
+      # The raw bytes between the quotes, percent-escapes decoded — the
+      # closing DQUOTE consumed; every other failure raises on the walk.
+      def display_string_bytes
+        bytes = "".b
         while @pos < @end
           current = @input.getbyte(@pos)
           fail_parse("a display string may only carry SP and printable ASCII") if current < SP || current > 0x7E
@@ -531,10 +559,7 @@ module Fast
             @pos += 2
           elsif current == DQUOTE
             @pos += 1
-            text = bytes.force_encoding(Encoding::UTF_8)
-            fail_parse("a display string must be valid UTF-8") unless text.valid_encoding?
-
-            return DisplayString.new(text.freeze)
+            return bytes
           else
             bytes << current
             @pos += 1
