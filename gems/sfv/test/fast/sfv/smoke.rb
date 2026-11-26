@@ -8,6 +8,6 @@ require "fast/sfv"
 describe Fast::SFV do
   it "loads the scaffold and carries its version" do
     expect(Fast::SFV).to be(:kind_of?, Module)
-    expect(Fast::SFV::VERSION).to be(:==, "0.1.0")
+    expect(Fast::SFV::VERSION).to be(:==, "0.1.1")
   end
 end

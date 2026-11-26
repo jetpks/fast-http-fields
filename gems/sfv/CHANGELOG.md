@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.1.1 (2026-11-25)
+
+- Docs: re-authored from scratch — the README front door and the
+  diataxis tree under `docs/` (tutorial, four how-to guides, two
+  reference pages, three explanations). Every ruby example executed
+  as printed, every RFC 9651 section citation checked against the RFC
+  text, and the performance page carries both runtime modes side by
+  side: the plain interpreter and YJIT (the compiling runtime, the
+  common production configuration).
+- Internals: an idiomaticity pass over the parse and emit paths —
+  binary-string literals (`"".b`), `String#ascii_only?` as the ASCII
+  pre-scan's hot path (the offset walk kept for the error it
+  reports), `case` member dispatch, and the long methods decomposed
+  into named phases (`emit_decimal`'s scan, rounding and wire-digit
+  emission; `parse_number`'s limits; the display-string walks).
+  Behavior is byte-identical: every error message and offset, every
+  parse and serialize allocation budget unchanged. Parse throughput
+  improved with the `ascii_only?` scan (interpreter `parse_item`
+  256k → 343k i/s on the benchmark samples; YJIT 1.67M → 2.07M).
+- The repo's comments no longer reference internal
+  development-workspace documents.
+
 ## 0.1.0 (2026-11-25)
 
 - Tokens: token values switched from `Symbol` to frozen

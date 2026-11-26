@@ -32,52 +32,52 @@ starry is the RFC 8941 reference implementation — a reference comparison, not 
 Interpreter mode:
 
 ```
-ruby 4.0.10 (2026-11-19 revision a704b7cd95) +PRISM [arm64-darwin25]; fast-sfv 0.1.0; starry 0.2.0
+ruby 4.0.10 (2026-11-19 revision a704b7cd95) +PRISM [arm64-darwin25]; fast-sfv 0.1.1; starry 0.2.0
 starry is the RFC 8941 reference implementation: a reference comparison, not a ranking.
 ```
 
 | operation | i/s | ±% | objects/call |
 |---|---|---|---|
-| Fast::SFV.parse_item | 256,591 | 0.86 | 5.00 |
-| Starry.parse_item | 379,186 | 1.10 | 26.00 |
-| Fast::SFV.parse_list | 197,013 | 0.70 | 14.00 |
-| Starry.parse_list | 130,454 | 0.69 | 81.00 |
-| Fast::SFV.parse_dict | 207,450 | 0.42 | 15.00 |
-| Starry.parse_dictionary | 133,467 | 0.51 | 74.00 |
-| Fast::SFV.serialize_item | 381,765 | 0.86 | 1.00 |
-| Starry.serialize (item) | 861,390 | 0.57 | 13.00 |
-| Fast::SFV.serialize_list | 305,404 | 0.79 | 1.00 |
-| Starry.serialize (list) | 310,671 | 0.88 | 50.00 |
-| Fast::SFV.serialize_dict | 287,994 | 0.65 | 1.00 |
-| Starry.serialize (dictionary) | 263,997 | 0.46 | 49.00 |
+| Fast::SFV.parse_item | 339,145 | 0.18 | 5.00 |
+| Starry.parse_item | 372,037 | 0.84 | 26.00 |
+| Fast::SFV.parse_list | 225,061 | 0.64 | 14.00 |
+| Starry.parse_list | 128,423 | 0.77 | 81.00 |
+| Fast::SFV.parse_dict | 232,985 | 0.63 | 15.00 |
+| Starry.parse_dictionary | 131,966 | 0.31 | 74.00 |
+| Fast::SFV.serialize_item | 383,919 | 0.23 | 1.00 |
+| Starry.serialize (item) | 856,056 | 0.60 | 13.00 |
+| Fast::SFV.serialize_list | 303,624 | 0.41 | 1.00 |
+| Starry.serialize (list) | 303,176 | 0.29 | 50.00 |
+| Fast::SFV.serialize_dict | 280,727 | 0.87 | 1.00 |
+| Starry.serialize (dictionary) | 261,121 | 0.38 | 49.00 |
 
 YJIT mode:
 
 ```
-ruby 4.0.10 (2026-11-19 revision a704b7cd95) +YJIT +PRISM [arm64-darwin25]; fast-sfv 0.1.0; starry 0.2.0
+ruby 4.0.10 (2026-11-19 revision a704b7cd95) +YJIT +PRISM [arm64-darwin25]; fast-sfv 0.1.1; starry 0.2.0
 starry is the RFC 8941 reference implementation: a reference comparison, not a ranking.
 ```
 
 | operation | i/s | ±% | objects/call |
 |---|---|---|---|
-| Fast::SFV.parse_item | 1,669,457 | 1.44 | 5.00 |
-| Starry.parse_item | 520,315 | 0.45 | 26.00 |
-| Fast::SFV.parse_list | 962,235 | 1.56 | 14.00 |
-| Starry.parse_list | 181,733 | 0.47 | 81.00 |
-| Fast::SFV.parse_dict | 917,566 | 1.34 | 15.00 |
-| Starry.parse_dictionary | 183,649 | 0.44 | 74.00 |
-| Fast::SFV.serialize_item | 2,273,364 | 2.01 | 1.00 |
-| Starry.serialize (item) | 1,199,315 | 2.02 | 13.00 |
-| Fast::SFV.serialize_list | 1,338,120 | 1.67 | 1.00 |
-| Starry.serialize (list) | 412,648 | 0.72 | 50.00 |
-| Fast::SFV.serialize_dict | 1,137,621 | 1.59 | 1.00 |
-| Starry.serialize (dictionary) | 359,093 | 0.62 | 49.00 |
+| Fast::SFV.parse_item | 2,060,645 | 1.65 | 5.00 |
+| Starry.parse_item | 519,172 | 0.49 | 26.00 |
+| Fast::SFV.parse_list | 1,041,774 | 1.13 | 14.00 |
+| Starry.parse_list | 182,174 | 0.69 | 81.00 |
+| Fast::SFV.parse_dict | 979,197 | 1.04 | 15.00 |
+| Starry.parse_dictionary | 184,763 | 0.80 | 74.00 |
+| Fast::SFV.serialize_item | 2,384,328 | 1.76 | 1.00 |
+| Starry.serialize (item) | 1,196,645 | 1.64 | 13.00 |
+| Fast::SFV.serialize_list | 1,384,987 | 0.98 | 1.00 |
+| Starry.serialize (list) | 417,199 | 1.04 | 50.00 |
+| Fast::SFV.serialize_dict | 1,164,225 | 1.43 | 1.00 |
+| Starry.serialize (dictionary) | 363,748 | 0.83 | 49.00 |
 
 Reading the two tables: in the interpreter, per-byte scanning pays Ruby
 VM dispatch on every byte, so starry — whose StringScanner regexes
 consume whole tokens in C — takes the two item-shaped cells, where most
 of the sample is one long string. With YJIT the scanner loops compile to
-machine code and every cell is ahead, by 1.9× to 5.3× on these samples.
+machine code and every cell is ahead, by 2.0× to 5.7× on these samples.
 The objects/call column is identical in both modes — allocation counts
 are mode-independent — and it is the column fast-sfv holds itself to;
 i/s is indicative.
