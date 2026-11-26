@@ -41,11 +41,12 @@ jobs:
       # bare `v*` tag has no legacy path: fail loudly, naming the
       # convention.
       #
-      # First publish: every entry carries OWNER=231507 —
-      # rubygems.org trusted publishers are configured for all five gems
+      # First publish: each not-yet-released entry carries OWNER=231507
+      # (rubygems.org trusted publishers are configured for the gems
       # under this workflow, and the first-publish token exchange must
-      # assert the owning account ID (GHSA-48p7-6mjr-3jjj). Each entry's
-      # OWNER is dropped after that gem's first release.
+      # assert the owning account ID, GHSA-48p7-6mjr-3jjj). Each entry's
+      # OWNER is dropped after that gem's first release — fast-sfv's is
+      # gone: 0.1.1 is published.
       - name: Dispatch per-gem release map
         if: ${{ fromJSON(env.IS_TAG) }}
         run: |
@@ -58,7 +59,6 @@ jobs:
               GEMSPEC=fast-sfv.gemspec
               REQUIRE=fast/sfv
               CONSTANT=Fast::SFV
-              OWNER=231507
               ;;
             priority-v*)
               GEM=priority
