@@ -44,3 +44,13 @@
   front door, and this changelog. The documentation pass and this
   0.1.0 release land together (docs are part of the product — the
   family's release rule).
+- Docs: the diátaxis docs tree under `docs/` (tutorial, three how-to
+  guides — the TTRP insertion with the sanitization rules, the origin
+  validation with OpenSSL on the caller's side, the PEM round-trips —
+  one reference page, four explanations), the README front door with
+  the quickstart and the documentation index, and the both-mode
+  performance page from one measurement session (interpreter and
+  YJIT side by side, the benchmark kit alongside, rubocop-clean).
+  Every fenced ruby example was executed as printed and every RFC
+  citation checked against the RFC text by the pipeline's independent
+  review.
