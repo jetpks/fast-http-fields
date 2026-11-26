@@ -81,7 +81,15 @@
   (including the flagged parse — the leniency split's own price),
   measured and frozen in the file's comment.
 - Scaffold: the gemspec (one runtime dependency, fast-sfv), the README
-  front door, and this changelog. The documentation pass and the 0.1.0
-  release land with the next entry of the gem map (the docs tree over
-  all three modules) — docs are part of the product, the family's
+  front door, and this changelog. The documentation pass and this 0.1.0
+  release land together — docs are part of the product, the family's
   release rule.
+- Docs: the diátaxis docs tree under `docs/` (tutorial covering all
+  three modules, four how-to guides, five reference pages — the three
+  APIs and both registries — four explanations), the README front door
+  with the three-module quickstart and the documentation index, and
+  the both-mode performance page from one measurement session
+  (interpreter and YJIT side by side, the benchmark kit alongside).
+  Every fenced ruby example was executed as printed and every RFC
+  citation checked against the RFC text by the pipeline's independent
+  review.
