@@ -7,8 +7,11 @@ require "fast/sfv"
 require_relative "proxy_status/version"
 require_relative "proxy_status/errors"
 require_relative "proxy_status/registry"
+require_relative "proxy_status/list_field"
 require_relative "proxy_status/hop"
 require_relative "proxy_status/status"
+require_relative "proxy_status/cache_status"
+require_relative "proxy_status/targeted_cache_control"
 
 module Fast
   # RFC 9209 Proxy-Status: the HTTP response field that conveys how
@@ -79,10 +82,15 @@ module Fast
   # round-trips untouched — future registrations never break old gem
   # versions.
   #
-  # Cache-Status and Targeted Cache Control (RFC 9211/9213) are the
-  # next entries of this gem's map; this class carries the hop-list
-  # plumbing they will sit beside, and nothing beyond what
-  # Proxy-Status itself needs.
+  # This class is one of the gem's three field classes, and the root
+  # the other two descend from: Fast::CacheStatus (RFC 9211) includes
+  # the shared Fast::ProxyStatus::ListField engine this class was
+  # refactored onto — the List machinery both fields spell, extracted
+  # with every offset pin and allocation ceiling of this class's own
+  # behavior held — and Fast::TargetedCacheControl (RFC 9213) is a
+  # Dictionary field beside it, on the family's Dictionary shape. Each
+  # nests its own error hierarchy and descends from Fast::ProxyStatus::
+  # Error, so one rescue guards the whole gem.
   class ProxyStatus
   end
 end
