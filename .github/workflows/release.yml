@@ -45,8 +45,8 @@ jobs:
       # (rubygems.org trusted publishers are configured for the gems
       # under this workflow, and the first-publish token exchange must
       # assert the owning account ID, GHSA-48p7-6mjr-3jjj). Each entry's
-      # OWNER is dropped after that gem's first release — fast-sfv's is
-      # gone: 0.1.1 is published.
+      # OWNER is dropped after that gem's first release — fast-sfv's
+      # and fast-priority's are gone (0.1.1, 0.1.0 published).
       - name: Dispatch per-gem release map
         if: ${{ fromJSON(env.IS_TAG) }}
         run: |
@@ -67,7 +67,6 @@ jobs:
               GEMSPEC=fast-priority.gemspec
               REQUIRE=fast/priority
               CONSTANT=Fast::Priority
-              OWNER=231507
               ;;
             digest-v*)
               GEM=digest
