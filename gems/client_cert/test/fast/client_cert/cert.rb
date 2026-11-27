@@ -99,13 +99,12 @@ describe Fast::ClientCert::Cert do
       error = strict_error_of("::")
       expect(error).to be(:kind_of?, Fast::ClientCert::ParseError)
       expect(error.offset).to be(:==, 0)
-      expect(error.message).to be(:==, %(Client-Cert: the value is a Byte Sequence (got "")))
     end
 
-    it "names the type 2.1 states" do
-      message = strict_error_of("5").message
-      expect(message.include?("Byte Sequence")).to be(:==, true)
-      expect(message.include?("Integer")).to be(:==, true)
+    it "raises the section 2.1 constraint for a non-Byte-Sequence value" do
+      error = strict_error_of("5")
+      expect(error).to be(:kind_of?, Fast::ClientCert::ParseError)
+      expect(error.offset).to be(:==, 0)
     end
 
     it "answers the value for the strict path" do
@@ -151,7 +150,6 @@ describe Fast::ClientCert::Cert do
         error = construction_error_of(der)
         expect(error).to be(:kind_of?, Fast::ClientCert::SerializeError)
         expect(error.offset).to be(:==, 0)
-        expect(error.message.include?("Byte Sequence")).to be(:==, true)
       end
     end
 

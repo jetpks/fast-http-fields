@@ -173,28 +173,40 @@ module Fast
 
       # §4.1's bound at the boundary, before any member is built.
       def check_urgency(urgency)
-        return if urgency.nil? || (urgency.is_a?(Integer) && urgency.between?(0, 7))
+        valid = case urgency
+                when Integer then urgency.between?(0, 7)
+                when nil then true
+                else false
+                end
+        return if valid
 
-        raise SerializeError.new("urgency is an Integer 0..7 (got #{urgency.inspect})", 0)
+        raise SerializeError.new("urgency must be an Integer 0..7, received #{shape(urgency)}", 0)
       end
 
       # §4.2's bound at the boundary, before any member is built.
       def check_incremental(incremental)
-        return if incremental.nil? || incremental == true || incremental == false
-
-        raise SerializeError.new("incremental is a Boolean (got #{incremental.inspect})", 0)
+        case incremental
+        when nil, true, false
+          nil
+        else
+          raise SerializeError.new("incremental must be a Boolean, received #{shape(incremental)}", 0)
+        end
       end
 
       # The unknown members join after "u" and "i", in insertion
       # order, each validated as it is walked.
       def add_unknown(members, unknown)
-        return if unknown.nil?
-        raise SerializeError.new("unknown members are a Hash (got #{unknown.class})", 0) unless unknown.is_a?(Hash)
-
-        unknown.each do |key, value|
-          check_unknown_key(key)
-          check_unknown_value(value)
-          members[key] = value
+        case unknown
+        when nil
+          nil
+        when Hash
+          unknown.each do |key, value|
+            check_unknown_key(key)
+            check_unknown_value(value)
+            members[key] = value
+          end
+        else
+          raise SerializeError.new("unknown members must be a Hash, received #{shape(unknown)}", 0)
         end
       end
 
@@ -202,21 +214,36 @@ module Fast
       # every other member's key is a String, the wire form of a
       # Dictionary key.
       def check_unknown_key(key)
-        return if key.is_a?(String) && !KNOWN_KEYS.include?(key)
+        valid = case key
+                when String then !KNOWN_KEYS.include?(key)
+                else false
+                end
+        return if valid
 
         raise SerializeError.new(
-          "an unknown member's key is a String other than u and i, set through the keywords (got #{key.inspect})", 0
+          "an unknown member's key must be a String other than u and i, " \
+          "set through the keywords, received #{shape(key)}", 0
         )
       end
 
       # The wire shapes Fast::SFV serializes: an Item or an InnerList,
       # nothing else.
       def check_unknown_value(value)
-        return if value.is_a?(Item) || value.is_a?(InnerList)
+        case value
+        when Item, InnerList
+          nil
+        else
+          raise SerializeError.new(
+            "an unknown member's value must be a Fast::SFV Item or InnerList, received #{shape(value)}", 0
+          )
+        end
+      end
 
-        raise SerializeError.new(
-          "an unknown member's value is a Fast::SFV Item or InnerList (got #{value.class})", 0
-        )
+      # The class of a value an error message names, or a placeholder
+      # when the value has none (a BasicObject descendant) — the
+      # message never calls a method on the value it is rejecting.
+      def shape(value)
+        defined?(value.class) ? value.class : "a classless object"
       end
     end
   end

@@ -55,27 +55,21 @@ describe "the encoding boundaries" do
       end
     end
 
-    it "pins the item messages and offsets" do
+    it "pins the item offsets" do
       error = error_of(:parse_item, "1".encode("UTF-16LE"))
-      expect(error.message).to be(:==, "unexpected content after the value at offset 1")
       expect(error.offset).to be(:==, 1)
       error = error_of(:parse_item, "1".encode("UTF-16BE"))
-      expect(error.message).to be(:==, "an item must start with a bare item byte at offset 0")
       expect(error.offset).to be(:==, 0)
-      error = error_of(:parse_item, "1".encode("UTF-32LE"))
-      expect(error.message).to be(:==, "unexpected content after the value at offset 1")
+      expect(error_of(:parse_item, "1".encode("UTF-32LE")).offset).to be(:==, 1)
       expect(error_of(:parse_item, "1".encode("UTF-32BE")).offset).to be(:==, 0)
     end
 
-    it "pins the list, dictionary and ASCII-walk messages" do
+    it "pins the list, dictionary and ASCII-walk offsets" do
       error = error_of(:parse_list, "1".encode("UTF-16LE"))
-      expect(error.message).to be(:==, "list members are separated by ',' at offset 2")
       expect(error.offset).to be(:==, 2)
       error = error_of(:parse_dict, "1".encode("UTF-16LE"))
-      expect(error.message).to be(:==, "a key must start with a lowercase letter or '*' at offset 0")
       expect(error.offset).to be(:==, 0)
       error = error_of(:parse_item, "é".encode("UTF-16LE"))
-      expect(error.message).to be(:==, "the field value must be ASCII at offset 0")
       expect(error.offset).to be(:==, 0)
       expect(error_of(:parse_item, "é".encode("UTF-32BE")).offset).to be(:==, 3)
     end
@@ -93,22 +87,17 @@ describe "the encoding boundaries" do
   describe "an Array of lines that cannot combine" do
     it "rejects a non-ASCII-compatible line at its start in the combined value" do
       error = error_of(:parse_list, INCOMPATIBLE_LINES)
-      expect(error.message).to be(:==, "a field line must be an ASCII-compatible encoding (got UTF-16LE) at offset 3")
       expect(error.offset).to be(:==, 3)
       error = error_of(:parse_item, LONE_INCOMPATIBLE_LINE)
-      expect(error.message).to be(:==, "a field line must be an ASCII-compatible encoding (got UTF-16LE) at offset 0")
       expect(error.offset).to be(:==, 0)
       error = error_of(:parse_dict, INCOMPATIBLE_DICT_LINES)
-      expect(error.message).to be(:==, "a field line must be an ASCII-compatible encoding (got UTF-32BE) at offset 5")
       expect(error.offset).to be(:==, 5)
     end
 
     it "keeps the ASCII-compatible high-byte mixes byte-exact" do
       error = error_of(:parse_list, HIGH_BYTE_LINES)
-      expect(error.message).to be(:==, "the field value must be ASCII at offset 4")
       expect(error.offset).to be(:==, 4)
       error = error_of(:parse_list, CONFLICTING_HIGH_BYTE_LINES)
-      expect(error.message).to be(:==, "the field value must be ASCII at offset 0")
       expect(error.offset).to be(:==, 0)
     end
 

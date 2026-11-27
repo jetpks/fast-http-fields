@@ -181,8 +181,8 @@ module Fast
         def param_ok?(key, value)
           case key
           when "hit", "stored", "collapsed" then boolean_value?(value)
-          when "fwd" then value.is_a?(Token)
-          when "fwd-status", "ttl" then value.is_a?(Integer)
+          when "fwd" then token_value?(value)
+          when "fwd-status", "ttl" then integer_value?(value)
           when "key" then plain_string?(value)
           when "detail" then identifier_value?(value)
           else true
@@ -201,7 +201,32 @@ module Fast
         # absence (§3's "collapsed=?0" example), so the check reads the
         # class, not the truth.
         def boolean_value?(value)
-          value.is_a?(TrueClass) || value.is_a?(FalseClass)
+          case value
+          when true, false
+            true
+          else
+            false
+          end
+        end
+
+        # A Token, as a never-dispatch predicate.
+        def token_value?(value)
+          case value
+          when Token
+            true
+          else
+            false
+          end
+        end
+
+        # An Integer, as a never-dispatch predicate.
+        def integer_value?(value)
+          case value
+          when Integer
+            true
+          else
+            false
+          end
         end
 
         private
@@ -216,7 +241,14 @@ module Fast
         # a Token (a Token is a different wire type) and not a Byte
         # Sequence.
         def plain_string?(value)
-          !value.is_a?(Token) && identifier_value?(value)
+          case value
+          when Token
+            false
+          when String
+            value.encoding != BINARY
+          else
+            false
+          end
         end
       end
 
@@ -336,10 +368,10 @@ module Fast
       # must not break an old gem version.
       def check_fwd!
         value = @params["fwd"]
-        return unless value.is_a?(Token)
+        return unless self.class.token_value?(value)
         return if FWD.include?(value)
 
-        raise SerializeError.new("fwd: the value is a Token of the 2.2 set (#{FWD.join(', ')})", 0)
+        raise SerializeError.new("fwd: the value must be a Token of the 2.2 set (#{FWD.join(', ')})", 0)
       end
     end
 

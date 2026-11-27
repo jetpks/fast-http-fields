@@ -34,12 +34,13 @@ module Fast
     # payload line stripped of the whitespace around it, generous the
     # way textual encodings need. Blank lines may lead and follow the
     # block; CRLF line endings are tolerated. Armor-shape failures
-    # raise Error: no BEGIN line, the END missing, no payload, or
+    # raise Error: no BEGIN line, the END missing, no payload (a
+    # payload region of blank lines alone carries no payload), or
     # content other than blank lines after the END (a second block —
     # one PEM block at a time; pass an Array of blocks to
     # pems_to_field for a chain). TypeError for a non-String.
     def pem_to_field(pem)
-      raise TypeError, "a PEM block is a String (got #{pem.class})" unless pem.is_a?(String)
+      raise TypeError, "a PEM block must be a String, received #{pem.class}" unless pem.is_a?(String)
 
       lines = pem.split("\n", -1)
       first = 0
@@ -54,9 +55,11 @@ module Fast
       unless first_armor_line(lines, first, last) == last
         raise Error, "one PEM block at a time — pass an Array of blocks for a chain"
       end
-      raise Error, "the PEM block carries no payload" unless last - first > 1
 
-      ":#{lines[first + 1...last].map(&:strip).join}:"
+      base64 = lines[first + 1...last].map(&:strip).join
+      raise Error, "the PEM block carries no payload" if base64.empty?
+
+      ":#{base64}:"
     end
 
     # The inverse: ":<base64>:" → one RFC 7468 block — the base64
@@ -66,7 +69,7 @@ module Fast
     # interior, or Error is raised before anything is written.
     # TypeError for a non-String.
     def field_to_pem(field)
-      raise TypeError, "a field value is a String (got #{field.class})" unless field.is_a?(String)
+      raise TypeError, "a field value must be a String, received #{field.class}" unless field.is_a?(String)
 
       base64 = base64_interior(field)
       block = "#{BEGIN_ARMOR}\n"
@@ -86,7 +89,7 @@ module Fast
     # ", " separator. The empty Array raises Error — nothing to
     # convert. TypeError for a non-Array.
     def pems_to_field(blocks)
-      raise TypeError, "blocks are an Array of PEM Strings (got #{blocks.class})" unless blocks.is_a?(Array)
+      raise TypeError, "blocks must be an Array of PEM Strings, received #{blocks.class}" unless blocks.is_a?(Array)
       raise Error, "nothing to convert — the blocks Array is empty" if blocks.empty?
 
       blocks.map { |block| pem_to_field(block) }.join(", ")
@@ -104,7 +107,7 @@ module Fast
     # base Error carrying the region scan's own message. The empty
     # value answers no blocks. TypeError for a non-String.
     def field_to_pems(field)
-      raise TypeError, "a field value is a String (got #{field.class})" unless field.is_a?(String)
+      raise TypeError, "a field value must be a String, received #{field.class}" unless field.is_a?(String)
       return [].freeze if field.empty?
 
       regions = SFV.regions_list(field)

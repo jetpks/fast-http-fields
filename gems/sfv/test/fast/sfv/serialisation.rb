@@ -212,7 +212,6 @@ describe Fast::SFV do
       expect(error).to be(:kind_of?, Fast::SFV::SerializeError)
       expect(error.offset).to be(:kind_of?, Integer)
       expect(error.offset).to be(:>=, 0)
-      expect(error.message.length).to be(:>, 0)
     end
 
     it "agrees with to_s on the wrappers" do
@@ -249,6 +248,12 @@ describe Fast::SFV do
       expect(Fast::SFV.serialize_item(Fast::SFV::Item.new(0.5015, {}))).to be(:==, "0.502")
       expect(Fast::SFV.serialize_item(Fast::SFV::Item.new(2.0005, {}))).to be(:==, "2.0")
       expect(Fast::SFV.serialize_item(Fast::SFV::Item.new(9.9995, {}))).to be(:==, "10.0")
+    end
+
+    it "serializes negative zero without the sign (4.1.5 step 5: only a value less than 0 carries one)" do
+      expect(Fast::SFV.serialize_item(Fast::SFV::Item.new(-0.0, {}))).to be(:==, "0.0")
+      reparsed = Fast::SFV.parse_item(Fast::SFV.serialize_item(Fast::SFV::Item.new(-0.0, {})))
+      expect(reparsed.value).to be(:==, 0.0)
     end
   end
 

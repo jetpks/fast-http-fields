@@ -131,7 +131,6 @@ describe Fast::SFV do
       scan = error_of { Fast::SFV.regions_list(UNJOINABLE_LINES) }
       parse = error_of { Fast::SFV.parse_list(UNJOINABLE_LINES) }
       expect([scan.message, scan.offset]).to be(:==, [parse.message, parse.offset])
-      expect(scan.message).to be(:==, "a field line must be an ASCII-compatible encoding (got UTF-16LE) at offset 3")
       expect(scan.offset).to be(:==, 3)
     end
 

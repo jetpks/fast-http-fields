@@ -180,7 +180,9 @@ module Fast
         # The member constraint, positioned at the member's identifier.
         def fail_member!(input, index, member)
           offset = member_value_offset(input, index)
-          raise self::ParseError.new("a #{field_label} member is a String or Token (got #{shown(member)})", offset)
+          raise self::ParseError.new(
+            "a #{field_label} member must be a String or Token, received #{shown(member)}", offset
+          )
         end
 
         # The field's parameter constraints over one member, in the
@@ -194,7 +196,7 @@ module Fast
             next if rule.nil? || member_class.param_ok?(key, value)
 
             offset = param_value_offset(input, index, key)
-            raise self::ParseError.new("#{key}: the value is #{rule} (got #{value})", offset)
+            raise self::ParseError.new("#{key}: the value must be #{rule}, received #{value}", offset)
           end
         end
 
@@ -211,10 +213,14 @@ module Fast
         # leniently (a malformed field treated as absent). TypeError for
         # anything else.
         def held_value(input)
-          return empty_value if input.nil?
-          return input if input.is_a?(self)
-
-          parse(input)
+          case input
+          when nil
+            empty_value
+          when self
+            input
+          else
+            parse(input)
+          end
         end
 
         # The value object behind members that already passed the
@@ -320,12 +326,22 @@ module Fast
 
       private
 
+      # The class of a value an error message names, or a placeholder
+      # when the value has none (a BasicObject descendant) — the
+      # message never calls a method on the value it is rejecting.
+      def shape(value)
+        defined?(value.class) ? value.class : "a classless object"
+      end
+
       # The construction boundary: an Array of the field's members, each
       # already validated at its own construction.
       def check_members!(members)
         klass = self.class.send(:member_class)
-        unless members.is_a?(Array)
-          raise self.class::SerializeError.new("members are an Array of #{klass} (got #{members.class})", 0)
+        case members
+        when Array
+          nil
+        else
+          raise self.class::SerializeError.new("members must be an Array of #{klass}, received #{shape(members)}", 0)
         end
 
         members.each { |member| check_member!(member) }
@@ -335,9 +351,12 @@ module Fast
       # its own construction was its validation.
       def check_member!(member)
         klass = self.class.send(:member_class)
-        return if member.is_a?(klass)
-
-        raise self.class::SerializeError.new("a member is a #{klass} (got #{member.class})", 0)
+        case member
+        when klass
+          nil
+        else
+          raise self.class::SerializeError.new("a member must be a #{klass}, received #{shape(member)}", 0)
+        end
       end
 
       # The one place the held state is written, then frozen: the
@@ -399,7 +418,14 @@ module Fast
           # not a String, so it fails here and the construction refuses
           # it.
           def identifier_value?(value)
-            value.is_a?(Token) || (value.is_a?(String) && value.encoding != BINARY)
+            case value
+            when Token
+              true
+            when String
+              value.encoding != BINARY
+            else
+              false
+            end
           end
 
           # A bare Structured Fields type (RFC 9651 §3.3.1) — the value
@@ -474,6 +500,13 @@ module Fast
 
         private
 
+        # The class of a value an error message names, or a placeholder
+        # when the value has none (a BasicObject descendant) — the
+        # message never calls a method on the value it is rejecting.
+        def shape(value)
+          defined?(value.class) ? value.class : "a classless object"
+        end
+
         # The one place the held state is written, then frozen: the
         # parse path's already-frozen value and params, as parsed.
         def hold(value, params)
@@ -486,20 +519,24 @@ module Fast
         def check_value!(value)
           return if self.class.identifier_value?(value)
 
-          raise self.class.send(:serialize_error, "a member identifier is a String or a Token (got #{value.inspect})")
+          raise self.class.send(:serialize_error,
+                                "a member identifier must be a String or a Token, received #{shape(value)}")
         end
 
         # The params boundary: a Hash of Structured Fields keys, each
         # value the type its key's section allows (any bare type for an
         # unknown key), frozen IN PLACE.
         def check_params!(params)
-          raise self.class.send(:serialize_error, "params are a Hash (got #{params.class})") unless params.is_a?(Hash)
-
-          params.each do |key, value|
-            check_key!(key)
-            check_param!(key, value)
+          case params
+          when Hash
+            params.each do |key, value|
+              check_key!(key)
+              check_param!(key, value)
+            end
+            params.freeze
+          else
+            raise self.class.send(:serialize_error, "params must be a Hash, received #{shape(params)}")
           end
-          params.freeze
         end
 
         # The parameter key grammar, RFC 9651 §4.2.3.3 read from the
@@ -508,24 +545,27 @@ module Fast
         def check_key!(key)
           return if valid_key?(key)
 
-          raise self.class.send(:serialize_error, "#{key.inspect} is not a Structured Fields key")
+          raise self.class.send(:serialize_error, "#{shape(key)} is not a Structured Fields key")
         end
 
         # The walk behind check_key! — manual and allocation-free, the
         # shape the substrate's own key parse uses.
         def valid_key?(key)
-          return false unless key.is_a?(String)
+          case key
+          when String
+            size = key.bytesize
+            return false if size.zero? || !KEY_FIRST[key.getbyte(0)]
 
-          size = key.bytesize
-          return false if size.zero? || !KEY_FIRST[key.getbyte(0)]
+            index = 1
+            while index < size
+              return false unless KEY_BODY[key.getbyte(index)]
 
-          index = 1
-          while index < size
-            return false unless KEY_BODY[key.getbyte(index)]
-
-            index += 1
+              index += 1
+            end
+            true
+          else
+            false
           end
-          true
         end
 
         # One parameter's value at the boundary: a key the field's own
@@ -536,12 +576,12 @@ module Fast
           if rule
             return if self.class.param_ok?(key, value)
 
-            raise self.class.send(:serialize_error, "#{key}: the value is #{rule} (got #{value.inspect})")
+            raise self.class.send(:serialize_error, "#{key}: the value must be #{rule}, received #{shape(value)}")
           end
           return if self.class.bare_type?(value)
 
           raise self.class.send(:serialize_error,
-                                "#{key}: the value is a bare Structured Fields type (got #{value.inspect})")
+                                "#{key}: the value must be a bare Structured Fields type, received #{shape(value)})")
         end
       end
     end

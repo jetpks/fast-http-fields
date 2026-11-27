@@ -129,7 +129,7 @@ module Fast
     def check_urgency!(member, input)
       return if member.is_a?(Item) && member.value.is_a?(Integer) && member.value.between?(0, 7)
 
-      raise ParseError.new("urgency is an Integer 0..7 (got #{shown(member)})", value_offset(input, "u"))
+      raise ParseError.new("urgency must be an Integer 0..7, received #{shown(member)}", value_offset(input, "u"))
     end
 
     # §4.2, inverted: a held "i" member is an Item carrying a Boolean
@@ -138,7 +138,7 @@ module Fast
     def check_incremental!(member, input)
       return if member.is_a?(Item) && (member.value.equal?(true) || member.value.equal?(false))
 
-      raise ParseError.new("incremental is a Boolean (got #{shown(member)})", value_offset(input, "i"))
+      raise ParseError.new("incremental must be a Boolean, received #{shown(member)}", value_offset(input, "i"))
     end
 
     # The byte the effective (last-wins) +key+ member's VALUE starts

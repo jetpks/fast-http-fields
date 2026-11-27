@@ -97,9 +97,12 @@ module Fast
       # The emit path never raises TypeError: the wrongness is in the
       # value being sent.
       def check_priority(priority)
-        return if priority.is_a?(Parameters)
-
-        raise SerializeError.new("a Fast::Priority::Parameters is required (got #{priority.class})", 0)
+        case priority
+        when Parameters
+          nil
+        else
+          raise SerializeError.new("a Fast::Priority::Parameters is required (got #{shape(priority)})", 0)
+        end
       end
 
       # §7.1's field bound, sender side: a prioritized stream ID of
@@ -109,11 +112,22 @@ module Fast
       # error of type PROTOCOL_ERROR" — so a strict sender never emits
       # one; the bound is 1..0x7FFFFFFF.
       def check_stream_id(stream_id)
-        return if stream_id.is_a?(Integer) && stream_id.between?(1, MAX_STREAM_ID)
+        valid = case stream_id
+                when Integer then stream_id.between?(1, MAX_STREAM_ID)
+                else false
+                end
+        return if valid
 
         raise SerializeError.new(
-          "the prioritized stream ID is an Integer 1..0x7FFFFFFF, never 0 (got #{stream_id.inspect})", 0
+          "the prioritized stream ID must be an Integer 1..0x7FFFFFFF, never 0, received #{shape(stream_id)}", 0
         )
+      end
+
+      # The class of a value an error message names, or a placeholder
+      # when the value has none (a BasicObject descendant) — the
+      # message never calls a method on the value it is rejecting.
+      def shape(value)
+        defined?(value.class) ? value.class : "a classless object"
       end
 
       # The payload is a binary String read bytewise; anything else is
@@ -124,7 +138,7 @@ module Fast
         raise TypeError, "a binary payload String is required (got #{payload.class})"
       end
 
-      private_class_method :check_priority, :check_stream_id, :check_payload
+      private_class_method :check_priority, :check_stream_id, :check_payload, :shape
     end
   end
 end

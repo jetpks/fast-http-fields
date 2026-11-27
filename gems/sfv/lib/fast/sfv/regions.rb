@@ -94,7 +94,7 @@ module Fast
         when :item then scan_item
         when :list then scan_list
         when :dictionary then scan_dictionary
-        else raise ArgumentError, "the shape is :item, :list or :dictionary (got #{shape.inspect})"
+        else raise ArgumentError, "the shape must be :item, :list or :dictionary, received #{shape.inspect}"
         end
         freeze
       end

@@ -39,13 +39,13 @@ require "fast/client_cert"
 begin
   Fast::Digest::ContentDigest.parse!("md5=5")
 rescue Fast::Digest::ParseError => e
-  e.message  # => "md5: a Content-Digest value is a Byte Sequence: a String tagged Encoding::ASCII_8BIT (got 5)"
+  e.message  # => "md5: a Content-Digest value must be a Byte Sequence: a String tagged Encoding::ASCII_8BIT, received 5"
 end
 
 begin
   Fast::ClientCert::Cert.parse!("5")
 rescue Fast::ClientCert::ParseError => e
-  e.message  # => "Client-Cert: the value is a Byte Sequence (got Integer)"
+  e.message  # => "Client-Cert: the value must be a Byte Sequence, received Integer"
 end
 ```
 

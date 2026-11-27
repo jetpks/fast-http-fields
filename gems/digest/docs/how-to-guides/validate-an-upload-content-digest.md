@@ -73,7 +73,7 @@ require "fast/digest"
 begin
   Fast::Digest::ContentDigest.parse!("md5=5")
 rescue Fast::Digest::ParseError => e
-  e.message  # => "md5: a Content-Digest value is a Byte Sequence: a String tagged Encoding::ASCII_8BIT (got 5)"
+  e.message  # => "md5: a Content-Digest value must be a Byte Sequence: a String tagged Encoding::ASCII_8BIT, received 5"
   e.offset   # => 4
 end
 ```

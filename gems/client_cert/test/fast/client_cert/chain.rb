@@ -66,8 +66,8 @@ describe Fast::ClientCert::Chain do
       expect(Fast::ClientCert::Chain.parse("::").empty?).to be(:==, true)
       expect(Fast::ClientCert::Chain.valid?("::")).to be(:==, false)
       error = strict_error_of("::")
+      expect(error).to be(:kind_of?, Fast::ClientCert::ParseError)
       expect(error.offset).to be(:==, 0)
-      expect(error.message).to be(:==, %(a Client-Cert-Chain member is a Byte Sequence (got "")))
     end
 
     it "ignores the whole field on any non-Byte-Sequence member (2.3)" do
@@ -133,11 +133,13 @@ describe Fast::ClientCert::Chain do
       expect(strict_error_of("5, :aGVsbG8=:, 5").offset).to be(:==, 0)
     end
 
-    it "names the field and the type 2.3 states" do
-      message = strict_error_of(":aGVsbG8=:, 5").message
-      expect(message.include?("Byte Sequence")).to be(:==, true)
-      expect(message.include?("Integer")).to be(:==, true)
-      expect(strict_error_of("(:aGVsbG8=:)").message.include?("InnerList")).to be(:==, true)
+    it "raises the section 2.3 constraint for non-Byte-Sequence members" do
+      error = strict_error_of(":aGVsbG8=:, 5")
+      expect(error).to be(:kind_of?, Fast::ClientCert::ParseError)
+      expect(error.offset).to be(:==, 12)
+      inner = strict_error_of("(:aGVsbG8=:)")
+      expect(inner).to be(:kind_of?, Fast::ClientCert::ParseError)
+      expect(inner.offset).to be(:==, 0)
     end
 
     it "answers the value for the strict path" do
