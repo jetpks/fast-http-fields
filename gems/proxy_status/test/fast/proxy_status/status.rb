@@ -234,6 +234,25 @@ describe Fast::ProxyStatus do
       expect(strict_error_of(["foo; error=5", "bar"]).offset).to be(:==, 11)
     end
 
+    it "positions after a display-string parameter ending in a backslash" do
+      # RFC 9651 §4.2.10: a display string's backslash is literal
+      # content and only DQUOTE closes, so x=%"\" is a legal parameter
+      # value the positioning must cross intact — the later member is
+      # raised at its own identifier, never past the field's end.
+      expect(strict_error_of(%(a; x=%"\\", 5)).offset).to be(:==, 11)
+      expect(strict_error_of(%(a; x=%"\\" , 5)).offset).to be(:==, 12)
+      expect(strict_error_of(%(a; x=%"a", 5)).offset).to be(:==, 11)
+    end
+
+    it "positions the error parameter after a display-string parameter" do
+      # The same §4.2.10 corner in front of the parameter the error
+      # names: its VALUE is where the strict parse points, at the
+      # parameter's own position — the offsets differ with the OWS
+      # around the separators, both pinned.
+      expect(strict_error_of(%(a; x=%"\\"; error=3)).offset).to be(:==, 17)
+      expect(strict_error_of(%(a; x=%"\\";  error=3)).offset).to be(:==, 18)
+    end
+
     it "positions the section 2.1.5 quoted error at its value" do
       error = strict_error_of("proxy.example.net; error=\"http_protocol_error\"")
       expect(error).to be(:kind_of?, Fast::ProxyStatus::ParseError)
@@ -261,6 +280,14 @@ describe Fast::ProxyStatus do
       strict = Fast::ProxyStatus.parse!("r34.example.net; error=http_request_error, ExampleCDN")
       expect(strict.to_s).to be(:==, "r34.example.net;error=http_request_error, ExampleCDN")
       expect(Fast::ProxyStatus.parse!("").empty?).to be(:==, true)
+    end
+
+    it "answers an Enumerator from #each without a block" do
+      field = Fast::ProxyStatus.parse("revproxy1.example.net, ExampleCDN")
+      enumerator = field.each
+      expect(enumerator).to be(:kind_of?, ::Enumerator)
+      expect(enumerator.to_a.map(&:to_s)).to be(:==, ["revproxy1.example.net", "ExampleCDN"])
+      expect(enumerator.each.next.to_s).to be(:==, "revproxy1.example.net")
     end
 
     it "raises TypeError for a wrong input type, as parse" do

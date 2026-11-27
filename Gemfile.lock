@@ -1,26 +1,26 @@
 PATH
   remote: gems/client_cert
   specs:
-    fast-client-cert (0.1.0)
-      fast-sfv
+    fast-client-cert (0.1.1)
+      fast-sfv (~> 0.2)
 
 PATH
   remote: gems/digest
   specs:
-    fast-digest (0.1.0)
-      fast-sfv
+    fast-digest (0.1.1)
+      fast-sfv (~> 0.2)
 
 PATH
   remote: gems/priority
   specs:
-    fast-priority (0.1.0)
-      fast-sfv
+    fast-priority (0.1.1)
+      fast-sfv (~> 0.2)
 
 PATH
   remote: gems/proxy_status
   specs:
-    fast-proxy-status (0.1.0)
-      fast-sfv
+    fast-proxy-status (0.1.1)
+      fast-sfv (~> 0.2)
 
 PATH
   remote: gems/sfv
@@ -112,10 +112,10 @@ CHECKSUMS
   bundler (4.0.23) sha256=407ba8a1d928f412847f819aa5f8b6aef7c59fb51feb517112af8a165487287b
   console (1.38.0) sha256=35b82f59130e95e9be6b832d9e539c8b3988fc192e4a8e9a86ab4922f44ad5de
   covered (0.30.0) sha256=93b1bf881812dd4f52e1c3330bf7fe0dcb6bc9bb72a200cbe5d282e902e947c5
-  fast-client-cert (0.1.0)
-  fast-digest (0.1.0)
-  fast-priority (0.1.0)
-  fast-proxy-status (0.1.0)
+  fast-client-cert (0.1.1)
+  fast-digest (0.1.1)
+  fast-priority (0.1.1)
+  fast-proxy-status (0.1.1)
   fast-sfv (0.2.0)
   fiber-annotation (0.2.0) sha256=7abfadf1d119f508867d4103bf231c0354d019cc39a5738945dec2edadaf6c03
   fiber-local (1.1.0) sha256=c885f94f210fb9b05737de65d511136ea602e00c5105953748aa0f8793489f06

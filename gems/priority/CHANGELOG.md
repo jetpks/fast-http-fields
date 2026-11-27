@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.1.1 (2026-11-27)
+
+- Fixed: the strict `parse!` positions §4 semantic errors through the
+  substrate's region scan (`Fast::SFV.regions_dict`, fast-sfv 0.2.0)
+  instead of this gem's private walk — the private walk desynced on
+  two legal RFC 9651 shapes (a display string whose content ends in a
+  backslash — §4.2.10 has no backslash escaping, backslash is literal
+  content and only DQUOTE closes — and parameters on the valueless
+  member, `a;q=1`), so `x=%"\", u=9` and `a;b=1, u=9` raised with a
+  nil offset where the member's value sits. Every pinned offset is
+  unchanged; the private walk class and the local field-line join
+  are gone (the substrate's validated combine is the only one), and
+  the clean strict path no longer allocates the walk's offsets.
+- Fixed: `Parameters#to_s` (and both frame encoders through it)
+  rewraps a substrate `SerializeError` as
+  `Fast::Priority::SerializeError` with its message and offset —
+  every failure this gem raises descends from
+  `Fast::Priority::Error`, the one-rescue guarantee the README
+  states.
+- Fixed: `H2.encode_payload` rejects a prioritized stream ID of 0 —
+  RFC 9218 §7.1 makes a received 0x0 an unconditional connection
+  error of type PROTOCOL_ERROR, so a strict sender never emits one
+  (the bound is 1..0x7FFFFFFF; the receiver's stream-state rules
+  remain the caller's).
+- Hygiene: the h3 comment's varint arithmetic corrected (0xF0700 =
+  984832, a 4-byte form spelled `80 0f 07 00`); the gemspec comment
+  rewritten self-contained; the fast-sfv dependency floored at
+  `~> 0.2` (the region-scan API this release reads).
+
 ## 0.1.0 (2026-11-26)
 
 - Field: `Fast::Priority.parse` / `parse!` / `valid?` — the RFC 9218 §4

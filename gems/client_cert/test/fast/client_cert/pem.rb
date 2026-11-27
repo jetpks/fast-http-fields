@@ -164,6 +164,27 @@ describe Fast::ClientCert do
       end
     end
 
+    it "splits on parameter-aware member boundaries (9651 4.2)" do
+      # A comma inside a quoted parameter value is content, not a
+      # separator: the param-carrying member converts whole, the
+      # member that follows it is its own member, and the fragment an
+      # error names is a real member's value, never a split artifact.
+      field = ':aGVsbG8=:;a="x,y", :QUJDRA==:'.dup
+      blocks = Fast::ClientCert.field_to_pems(field)
+      expect(blocks).to be(:==, Fast::ClientCert.field_to_pems(":aGVsbG8=:, :QUJDRA==:"))
+      rebuilt = Fast::ClientCert.pems_to_field(blocks)
+      expect(rebuilt).to be(:==, ":aGVsbG8=:, :QUJDRA==:")
+      expect(Fast::ClientCert::Chain.parse(field).ders)
+        .to be(:==, Fast::ClientCert::Chain.parse(rebuilt).ders)
+      error = false
+      begin
+        Fast::ClientCert.field_to_pems(':aGVsbG8=:;a="x,y", :QUJD=:'.dup)
+      rescue Fast::ClientCert::Error => e
+        error = e
+      end
+      expect(error.message).to be(:include?, 'got ":QUJD=:')
+    end
+
     it "raises TypeError for a non-String" do
       type_error = false
       begin

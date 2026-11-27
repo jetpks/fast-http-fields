@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.1.1 (2026-11-27)
+
+- Fixed: the strict `parse!` positions member errors through the
+  substrate's region scan (`Fast::SFV.regions_dict`, fast-sfv 0.2.0)
+  instead of this gem's private walk — the private walk desynced on
+  two legal RFC 9651 shapes (a display string whose content ends in a
+  backslash — §4.2.10 has no backslash escaping, backslash is literal
+  content and only DQUOTE closes — and parameters on the valueless
+  member, `a;q=1`), so a member after either raised at the wrong
+  offset, named the wrong member, or carried a nil offset where an
+  Integer is documented. The first offender is now chosen in the
+  combined field value's member order (the effective, last-wins
+  occurrence of each key, earliest in the value first) and positioned
+  at its own value; every pinned offset is unchanged. The private
+  walk class and the local field-line join are gone (the substrate's
+  validated combine is the only one — an Array of lines joins once,
+  not twice), and the clean strict path no longer allocates the walk's
+  offsets (the Integrity parse drops from 10 to 7 objects, the
+  three-member preference parse from 15 to 10; budgets re-pinned).
+- Added: `#each` without a block answers an `Enumerator` over the same
+  key/value pairs — the family's iteration convention; the allocation
+  lands only on that cold path.
+- Hygiene: the fast-sfv dependency floored at `~> 0.2` (the
+  region-scan API this release reads).
+
 ## 0.1.0 (2026-11-26)
 
 - Fields: `Fast::Digest::ContentDigest`, `ReprDigest`, `WantContentDigest` and

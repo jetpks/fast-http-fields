@@ -102,11 +102,18 @@ module Fast
         raise SerializeError.new("a Fast::Priority::Parameters is required (got #{priority.class})", 0)
       end
 
-      # §7.1's field bound.
+      # §7.1's field bound, sender side: a prioritized stream ID of
+      # 0x0 is the one identifier the RFC rejects unconditionally —
+      # "If a PRIORITY_UPDATE frame is received with a prioritized
+      # stream ID of 0x0, the recipient MUST respond with a connection
+      # error of type PROTOCOL_ERROR" — so a strict sender never emits
+      # one; the bound is 1..0x7FFFFFFF.
       def check_stream_id(stream_id)
-        return if stream_id.is_a?(Integer) && stream_id.between?(0, MAX_STREAM_ID)
+        return if stream_id.is_a?(Integer) && stream_id.between?(1, MAX_STREAM_ID)
 
-        raise SerializeError.new("the prioritized stream ID is an Integer 0..0x7FFFFFFF (got #{stream_id.inspect})", 0)
+        raise SerializeError.new(
+          "the prioritized stream ID is an Integer 1..0x7FFFFFFF, never 0 (got #{stream_id.inspect})", 0
+        )
       end
 
       # The payload is a binary String read bytewise; anything else is

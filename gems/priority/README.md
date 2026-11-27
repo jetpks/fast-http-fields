@@ -82,7 +82,7 @@ See [Frame payload codecs](docs/reference/frames.md) and [How the priority schem
 
 ## Documentation
 
-Current release 0.1.0; changelog at [CHANGELOG.md](CHANGELOG.md).
+Current release 0.1.1; changelog at [CHANGELOG.md](CHANGELOG.md).
 
 ### Tutorial
 

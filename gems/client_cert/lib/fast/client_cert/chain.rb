@@ -72,9 +72,9 @@ module Fast
           while index < members.size
             member = members[index]
             unless member_ok?(member)
-              offset = Scan.new(combined(input)).member_offset(index)
               raise ParseError.new(
-                "a Client-Cert-Chain member is a Byte Sequence (got #{Checks.shown(member)})", offset
+                "a Client-Cert-Chain member is a Byte Sequence (got #{Checks.shown(member)})",
+                member_offset(input, index)
               )
             end
 
@@ -106,12 +106,16 @@ module Fast
           member.is_a?(Item) && Checks.byte_sequence?(member.value)
         end
 
-        # The field value the Scan positions into: the lines joined
-        # with ", " — the same RFC 9651 §4.2 combining
-        # Fast::SFV.parse_list applies — a String as given. Computed
-        # only on the error path, where the positioning needs it.
-        def combined(input)
-          input.is_a?(Array) ? input.join(", ") : input
+        # The byte offset of member +index+'s first non-OWS byte —
+        # where a member ParseError points. Read from the substrate's
+        # region scan, consulted only on this error path, so the clean
+        # path pays nothing for positioning; the scan is the
+        # substrate's own §4.2 walk (RFC 9651 display strings,
+        # parameters on every member form), so the offset survives the
+        # members a private walk would desync on — a chain member's
+        # parameter may legally carry a display string.
+        def member_offset(input, index)
+          SFV.regions_list(input).members[index].value_start
         end
 
         # The value object behind members that already passed the
@@ -240,88 +244,6 @@ module Fast
         @ders = items.map(&:value).freeze
         freeze
       end
-
-      # The strict parse's positioning walk: where member +index+'s
-      # first non-OWS byte sits in the combined field value — the
-      # offset a member ParseError points at. The field value already
-      # parsed when this runs, so the walk only tracks the member
-      # boundaries: members split on commas at inner-list depth zero
-      # outside quoted strings (RFC 9651 §4.2's separators), so a
-      # comma inside a quoted string (§4.2.5, a backslash escapes the
-      # next byte) or inside an inner list's parens (§4.2.1.1) does
-      # not split.
-      class Scan
-        # A 256-entry byte class: true for every byte of +spec+ — the
-        # byte-table shape the family's scanners walk with.
-        def self.byte_class(spec)
-          table = Array.new(256, false)
-          spec.each_byte { |byte| table[byte] = true }
-          table.freeze
-        end
-
-        # The optional whitespace around a member separator (RFC 9651
-        # §4.2.1).
-        OWS = byte_class(" \t")
-
-        COMMA = 0x2C
-        LPAREN = 0x28
-        RPAREN = 0x29
-        DQUOTE = 0x22
-        BACKSLASH = 0x5C
-
-        def initialize(combined)
-          @combined = combined
-          @size = combined.bytesize
-        end
-
-        # The byte offset of member +index+'s first non-OWS byte —
-        # where a member ParseError points.
-        def member_offset(index)
-          pos = skip_ows(0)
-          member = 0
-          while member < index
-            pos = boundary(pos) + 1
-            pos = skip_ows(pos)
-            member += 1
-          end
-          pos
-        end
-
-        private
-
-        # Discards leading OWS.
-        def skip_ows(index)
-          index += 1 while index < @size && OWS[@combined.getbyte(index)]
-          index
-        end
-
-        # The index of the next member boundary at inner-list depth
-        # zero outside a quoted string, starting at +index+: the ","
-        # that ends a member. A quoted string's commas are inside its
-        # quotes (§4.2.5, a backslash escapes the next byte), an inner
-        # list's are inside its parens (§4.2.1.1).
-        def boundary(index)
-          depth = 0
-          quoted = false
-          while index < @size
-            byte = @combined.getbyte(index)
-            if quoted
-              index += byte == BACKSLASH ? 2 : 1
-              quoted = false if byte == DQUOTE
-            else
-              case byte
-              when DQUOTE then quoted = true
-              when LPAREN then depth += 1
-              when RPAREN then depth -= 1
-              when COMMA then return index if depth.zero?
-              end
-              index += 1
-            end
-          end
-          index
-        end
-      end
-      private_constant :Scan
 
       # The members a fail-closed parse holds: none — the same answer
       # an absent field gives (RFC 9651 §2.2; §2.3 defines no other

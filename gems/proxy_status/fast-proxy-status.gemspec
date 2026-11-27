@@ -61,6 +61,7 @@ Gem::Specification.new do |spec|
   # Exactly one runtime dependency, unconstrained: fast-sfv is the
   # family substrate this gem parses and emits through — Proxy-Status
   # is a Structured Field Values List, so there is nothing to compute
-  # and no stdlib to add.
-  spec.add_dependency "fast-sfv"
+  # and no stdlib to add. The substrate is floored at 0.2 within the
+  # 0.x series.
+  spec.add_dependency "fast-sfv", "~> 0.2"
 end

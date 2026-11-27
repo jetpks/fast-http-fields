@@ -129,16 +129,9 @@ module Fast
         # failure is wrapped with its message and offset.
         def walk(input, strict)
           members = SFV.parse_list(input)
-          from_members(members_from_items(members, combined(input), strict))
+          from_members(members_from_items(members, input, strict))
         rescue SFV::ParseError => e
           raise self::ParseError.new(e.message, e.offset)
-        end
-
-        # The field value the Scan positions into: the lines joined with
-        # ", " — the same RFC 9651 §4.2 combining Fast::SFV.parse_list
-        # applies — a String as given.
-        def combined(input)
-          input.is_a?(Array) ? input.join(", ") : input
         end
 
         # The member walk over a parsed List: the member constraint on
@@ -146,21 +139,47 @@ module Fast
         # the first offender in List order raising positioned — a
         # member's params are checked before the NEXT member, so
         # "good; error=5, 5" raises at the parameter. A manual position
-        # counter: the member index the positioning Scan reads.
-        def members_from_items(members, field_value, strict)
+        # counter: the member index the region scan reads.
+        def members_from_items(members, input, strict)
           index = 0
           while index < members.size
             member = members[index]
-            fail_member!(field_value, index, member) unless member_class.member_ok?(member)
-            check_params!(member, field_value, index) if strict
+            fail_member!(input, index, member) unless member_class.member_ok?(member)
+            check_params!(member, input, index) if strict
             index += 1
           end
           members.map { |member| member_class.from_item(member) }
         end
 
+        # The byte offsets the strict path positions with, read from
+        # the substrate's region scan — consulted only where an error
+        # needs an offset, so the clean path pays nothing for
+        # positioning. The scan is the substrate's own §4.2 walk (RFC
+        # 9651 display strings, parameters on every member form), so
+        # the offset survives the members a private walk would desync
+        # on.
+        def member_value_offset(input, index)
+          SFV.regions_list(input).members[index].value_start
+        end
+
+        # The member +index+'s +key+ parameter VALUE offset: the LAST
+        # occurrence of the key in the member's parameter group — the
+        # one the last-wins parameter Hash kept — just past its "=", or
+        # the key's end for the valueless form (the implicit Boolean
+        # true, where a value would be written).
+        def param_value_offset(input, index, key)
+          regions = SFV.regions_list(input)
+          offset = nil
+          regions.members[index].params.each do |param|
+            param_key = regions.combined.byteslice(param.key_start, param.key_end - param.key_start)
+            offset = param.value_start if param_key == key
+          end
+          offset
+        end
+
         # The member constraint, positioned at the member's identifier.
-        def fail_member!(field_value, index, member)
-          offset = Scan.new(field_value).member_offset(index)
+        def fail_member!(input, index, member)
+          offset = member_value_offset(input, index)
           raise self::ParseError.new("a #{field_label} member is a String or Token (got #{shown(member)})", offset)
         end
 
@@ -169,12 +188,12 @@ module Fast
         # at its VALUE. Unknown parameters are skipped — the field's own
         # "unrecognised parameters MUST be ignored" rule — and
         # preserved.
-        def check_params!(member, field_value, index)
+        def check_params!(member, input, index)
           member.params.each do |key, value|
             rule = member_class.param_rule(key)
             next if rule.nil? || member_class.param_ok?(key, value)
 
-            offset = Scan.new(field_value).param_offset(index, key)
+            offset = param_value_offset(input, index, key)
             raise self::ParseError.new("#{key}: the value is #{rule} (got #{value})", offset)
           end
         end
@@ -525,130 +544,6 @@ module Fast
                                 "#{key}: the value is a bare Structured Fields type (got #{value.inspect})")
         end
       end
-
-      # The strict parse's positioning walk: where a member's identifier
-      # and a parameter's VALUE sit in the combined field value — the
-      # byte offsets a member or parameter ParseError points at. The
-      # field value already parsed when this runs, so the walk only
-      # tracks the boundaries: members split on commas at inner-list
-      # depth zero outside quoted strings (RFC 9651 §4.2's separators);
-      # a semicolon at depth zero outside a string starts a parameter of
-      # the member's top-level item (tokens, byte sequences and numbers
-      # cannot carry one; a string's and a display string's semicolons
-      # are inside their quotes; an inner list's are inside its parens).
-      # The walk runs ONLY where an error needs an offset — the clean
-      # paths pay nothing for positioning.
-      class Scan
-        # A 256-entry byte class: true for every byte of +spec+ — the
-        # byte-table shape the family's scanners walk with.
-        def self.byte_class(spec)
-          table = Array.new(256, false)
-          spec.each_byte { |byte| table[byte] = true }
-          table.freeze
-        end
-
-        # A key's bytes (RFC 9651 §4.2.3.3) — the member's own grammar
-        # class, the same table the construction's key check reads.
-        KEY_BODY = Member::KEY_BODY
-        # The optional whitespace around a member separator (§4.2.1).
-        OWS = byte_class(" \t")
-
-        COMMA = 0x2C
-        SEMICOLON = 0x3B
-        EQUALS = 0x3D
-        LPAREN = 0x28
-        RPAREN = 0x29
-        DQUOTE = 0x22
-        BACKSLASH = 0x5C
-        SP = 0x20
-
-        def initialize(combined)
-          @combined = combined
-          @size = combined.bytesize
-        end
-
-        # The byte offset of member +index+'s identifier: its first
-        # non-OWS byte — where a member ParseError points.
-        def member_offset(index)
-          pos = skip_ows(0)
-          member = 0
-          while member < index
-            pos = boundary(pos, false) + 1
-            pos = skip_ows(pos)
-            member += 1
-          end
-          pos
-        end
-
-        # The byte offset of member +index+'s +key+ parameter VALUE:
-        # just past the "=" when the parameter carries one, the key's end
-        # for the valueless form (the implicit Boolean true, written
-        # where a value would be). The LAST occurrence of the key wins —
-        # the mirror of the parse's last-wins parameter Hash, whose
-        # effective value the check read.
-        def param_offset(index, key)
-          pos = boundary(member_offset(index), true)
-          offset = nil
-          while pos < @size && @combined.getbyte(pos) == SEMICOLON
-            pos += 1
-            pos += 1 while pos < @size && @combined.getbyte(pos) == SP
-            key_start = pos
-            pos += 1 while pos < @size && KEY_BODY[@combined.getbyte(pos)]
-            key_end = pos
-            value_offset = key_end
-            if pos < @size && @combined.getbyte(pos) == EQUALS
-              pos += 1
-              value_offset = pos
-              pos = boundary(pos, true)
-            end
-            offset = value_offset if @combined.byteslice(key_start, key_end - key_start) == key
-          end
-          offset
-        end
-
-        private
-
-        # Discards leading OWS.
-        def skip_ows(index)
-          index += 1 while index < @size && OWS[@combined.getbyte(index)]
-          index
-        end
-
-        # The index of the next boundary at inner-list depth zero outside
-        # a quoted string, starting at +index+: always the "," that ends
-        # a member, and — when +params_too+ — the ";" that starts the
-        # member's top-level parameters or follows one parameter's value,
-        # found first. A quoted string's separators are inside its quotes
-        # (§4.2.5, a backslash escapes the next byte), an inner list's
-        # are inside its parens (§4.2.1.1).
-        def boundary(index, params_too)
-          depth = 0
-          quoted = false
-          while index < @size
-            byte = @combined.getbyte(index)
-            if quoted
-              index += byte == BACKSLASH ? 2 : 1
-              quoted = false if byte == DQUOTE
-            else
-              case byte
-              when DQUOTE
-                quoted = true
-              when LPAREN
-                depth += 1
-              when RPAREN
-                depth -= 1
-              when SEMICOLON
-                return index if params_too && depth.zero?
-              when COMMA
-                return index if depth.zero?
-              end
-              index += 1
-            end
-          end
-          index
-        end
-      end
-      private_constant :Scan
     end
   end
 end

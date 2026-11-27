@@ -222,4 +222,4 @@ See the three [reference pages](docs/reference/proxy-status.md).
   - [The Targeted Cache Control boundary](docs/explanation/the-targeted-cache-control-boundary.md) — what this class does not parse.
   - [Performance and allocation budgets](docs/explanation/performance.md) — how the paths stay allocation-lean.
 
-Current release 0.1.0; changelog at [CHANGELOG.md](CHANGELOG.md).
+Current release 0.1.1; changelog at [CHANGELOG.md](CHANGELOG.md).

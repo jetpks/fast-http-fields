@@ -138,6 +138,14 @@ describe Fast::TargetedCacheControl do
       field.each { |key, value| directives << [key, value] }
       expect(directives).to be(:==, [["max-age", 600], ["no-store", true]])
     end
+
+    it "answers an Enumerator from #each without a block" do
+      field = Fast::TargetedCacheControl.parse("max-age=600, no-store")
+      enumerator = field.each
+      expect(enumerator).to be(:kind_of?, ::Enumerator)
+      expect(enumerator.to_a).to be(:==, [["max-age", 600], ["no-store", true]])
+      expect(enumerator.each.next).to be(:==, ["max-age", 600])
+    end
   end
 
   describe ".parse!" do
@@ -170,6 +178,20 @@ describe Fast::TargetedCacheControl do
       error = strict_error_of(["max-age=1", "max-age=abc"])
       expect(error).to be(:kind_of?, Fast::TargetedCacheControl::ParseError)
       expect(error.offset).to be(:==, 19)
+    end
+
+    it "positions after a parameter on the valueless member" do
+      # RFC 9651 §4.2.2 step 3 parses parameters on the implicit
+      # Boolean true, so foo; a=1 is a legal member the positioning
+      # must cross intact — the later bar is raised at its own value.
+      expect(strict_error_of("foo; a=1, bar=:AQID:").offset).to be(:==, 14)
+      expect(strict_error_of("foo, bar=:AQID:").offset).to be(:==, 9)
+    end
+
+    it "positions after a display-string parameter ending in a backslash" do
+      # §4.2.10 again, as a parameter value: the later bar is raised at
+      # its own value, never lost to the walk.
+      expect(strict_error_of(%(foo; a=%"\\", bar=:AQID:)).offset).to be(:==, 17)
     end
 
     it "names the directive and its rule" do

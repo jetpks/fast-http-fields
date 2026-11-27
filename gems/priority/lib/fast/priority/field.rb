@@ -2,121 +2,6 @@
 
 module Fast
   module Priority
-    # The strict parse's positioning walk: where each known member's
-    # VALUE sits in the combined field value — the byte offset a §4
-    # semantic ParseError points at. The field value already parsed
-    # when this runs, so the walk only tracks the boundaries: members
-    # split on commas at inner-list depth zero outside quoted strings
-    # (RFC 9651 §4.2's separators), a quoted string's commas and
-    # parens do not count (§4.2.5's escapes are skipped two bytes), and
-    # a member without "=" — the implicit Boolean true — offsets at its
-    # key's end, where its value would be written.
-    class Scan
-      # A 256-entry byte class: true for every byte of +spec+ — the
-      # byte-table shape Fast::SFV's own scanners walk with.
-      def self.byte_class(spec)
-        table = Array.new(256, false)
-        spec.each_byte { |byte| table[byte] = true }
-        table.freeze
-      end
-
-      # A Dictionary key's bytes (RFC 9651 §4.2.3.3: lcalpha, DIGIT,
-      # "_", "-", "." and "*"). The first-byte restriction never
-      # matters here — the field value already parsed.
-      KEY = byte_class("abcdefghijklmnopqrstuvwxyz0123456789_-.*")
-      # The optional whitespace around a member separator (§4.2.1).
-      OWS = byte_class(" \t")
-
-      COMMA = 0x2C
-      EQUALS = 0x3D
-      LPAREN = 0x28
-      RPAREN = 0x29
-      DQUOTE = 0x22
-      BACKSLASH = 0x5C
-      # The two keys this gem interprets (RFC 9218 §4.1 and §4.2).
-      U_KEY = 0x75
-      I_KEY = 0x69
-
-      def initialize(combined)
-        @combined = combined
-        @size = combined.bytesize
-      end
-
-      # One walk answers the offsets of the "u" and "i" members'
-      # values — the LAST one seen for each, because Fast::SFV applies
-      # §4.2's last-wins before the check reads these offsets, so the
-      # effective member is the one its value came from.
-      def offsets
-        @offsets = {}
-        index = 0
-        index = member_at(index) while index < @size
-        @offsets
-      end
-
-      private
-
-      # Walks one member from +index+ and answers the index the next
-      # member starts at: leading OWS, the key, the value — its offset
-      # recorded when the member is "u" or "i" — then the separator.
-      # A member that is not followed by a comma ends the walk.
-      def member_at(index)
-        index += 1 while index < @size && OWS[@combined.getbyte(index)]
-        key_start = index
-        index += 1 while index < @size && KEY[@combined.getbyte(index)]
-        key_end = index
-        value_offset = index
-        if @combined.getbyte(index) == EQUALS
-          index += 1
-          value_offset = index
-          index = value_end(index)
-        end
-        record(key_start, key_end - key_start, value_offset)
-        index += 1 while index < @size && OWS[@combined.getbyte(index)]
-        return @size unless index < @size && @combined.getbyte(index) == COMMA
-
-        index + 1
-      end
-
-      # Records a known member's value offset: a one-byte key that
-      # spells "u" or "i" (RFC 9218's two registered single-character
-      # parameters — anything longer is an unknown member).
-      def record(key_start, key_size, value_offset)
-        return unless key_size == 1
-
-        case @combined.getbyte(key_start)
-        when U_KEY then @offsets["u"] = value_offset
-        when I_KEY then @offsets["i"] = value_offset
-        end
-      end
-
-      # The index just past the member VALUE starting at +index+:
-      # quoted strings (§4.2.5 — a DQUOTE opens, a backslash escapes
-      # the next byte, a DQUOTE closes) and inner-list depth
-      # (§4.2.1.1's parens) are tracked, and a comma at depth zero
-      # outside a string — the §4.2 member boundary — stops the walk.
-      def value_end(index)
-        depth = 0
-        quoted = false
-        while index < @size
-          byte = @combined.getbyte(index)
-          if quoted
-            index += byte == BACKSLASH ? 2 : 1
-            quoted = false if byte == DQUOTE
-          else
-            case byte
-            when DQUOTE then quoted = true
-            when LPAREN then depth += 1
-            when RPAREN then depth -= 1
-            when COMMA then return index if depth.zero?
-            end
-            index += 1
-          end
-        end
-        index
-      end
-    end
-    private_constant :Scan
-
     # The RFC 9218 §4 recipient semantics over one field value: one
     # RFC 9651 Dictionary parse through Fast::SFV ("Receivers parse the
     # Dictionary as described in Section 4.2 of [STRUCTURED-FIELDS]"),
@@ -209,7 +94,7 @@ module Fast
     # wrong input type, as parse.
     def parse!(input)
       dict = SFV.parse_dict(input)
-      check_members!(dict, combined(input))
+      check_members!(dict, input)
       Parameters.send(:from_members, dict)
     rescue SFV::ParseError => e
       raise ParseError.new(e.message, e.offset)
@@ -225,38 +110,53 @@ module Fast
       false
     end
 
-    # The field value the scan positions into: the lines joined with
-    # ", " — the same RFC 9651 §4.2 combining Fast::SFV.parse_dict
-    # applies — a String as given.
-    def combined(input)
-      input.is_a?(Array) ? input.join(", ") : input
-    end
-
+    # The combined field value's region scan, consulted only where an
+    # error needs an offset — the clean path pays nothing for
+    # positioning. The scan is the substrate's own §4.2 walk (RFC 9651
+    # display strings, parameters on the valueless member), so the
+    # offset survives the members a private walk would desync on.
     # §4 inverted on the effective members: the two known parameters
-    # checked, each error pointed at the value the walk found.
-    def check_members!(dict, field_value)
-      offsets = Scan.new(field_value).offsets
+    # checked, each error pointed at the value the scan found.
+    def check_members!(dict, input)
       urgency = dict["u"]
-      check_urgency!(urgency, offsets["u"]) if urgency
+      check_urgency!(urgency, input) if urgency
       incremental = dict["i"]
-      check_incremental!(incremental, offsets["i"]) if incremental
+      check_incremental!(incremental, input) if incremental
     end
 
     # §4.1, inverted: a held "u" member is an Item carrying an Integer
     # 0..7.
-    def check_urgency!(member, offset)
+    def check_urgency!(member, input)
       return if member.is_a?(Item) && member.value.is_a?(Integer) && member.value.between?(0, 7)
 
-      raise ParseError.new("urgency is an Integer 0..7 (got #{shown(member)})", offset)
+      raise ParseError.new("urgency is an Integer 0..7 (got #{shown(member)})", value_offset(input, "u"))
     end
 
     # §4.2, inverted: a held "i" member is an Item carrying a Boolean
     # — one of the two literals, the identity check the emit path's own
     # short-form test uses, so nothing allocates per member.
-    def check_incremental!(member, offset)
+    def check_incremental!(member, input)
       return if member.is_a?(Item) && (member.value.equal?(true) || member.value.equal?(false))
 
-      raise ParseError.new("incremental is a Boolean (got #{shown(member)})", offset)
+      raise ParseError.new("incremental is a Boolean (got #{shown(member)})", value_offset(input, "i"))
+    end
+
+    # The byte the effective (last-wins) +key+ member's VALUE starts
+    # at in the combined field value: the last occurrence's value
+    # start in the substrate's region scan — the member the §4.2
+    # last-wins parse kept, the position a semantic ParseError points
+    # at. The valueless member's span is empty at its key's end, the
+    # position a value would be written at, so it answers the key's
+    # end — the same offset the implicit Boolean true always raised
+    # at.
+    def value_offset(input, key)
+      regions = SFV.regions_dict(input)
+      offset = nil
+      regions.members.each do |member|
+        member_key = regions.combined.byteslice(member.key_start, member.key_end - member.key_start)
+        offset = member.value_start if member_key == key
+      end
+      offset
     end
 
     # What a semantic error shows of the offending member: the bare
@@ -266,6 +166,6 @@ module Fast
       member.is_a?(Item) ? member.value : member.class
     end
 
-    private_class_method :combined, :check_members!, :check_urgency!, :check_incremental!, :shown
+    private_class_method :check_members!, :check_urgency!, :check_incremental!, :value_offset, :shown
   end
 end
