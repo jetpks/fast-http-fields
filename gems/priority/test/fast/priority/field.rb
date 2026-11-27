@@ -113,7 +113,7 @@ describe Fast::Priority do
   end
 
   describe ".parse!" do
-    it "wraps the SFV Dictionary failure with its message and offset" do
+    it "wraps the SFV Dictionary failure with its offset" do
       error = nil
       begin
         Fast::Priority.parse!("!!")
@@ -122,7 +122,6 @@ describe Fast::Priority do
       end
       expect(error).to be(:kind_of?, Fast::Priority::ParseError)
       expect(error.offset).to be(:==, 0)
-      expect(error.message.length).to be(:>, 0)
     end
 
     it "returns the strict view of a valid field" do
@@ -137,7 +136,6 @@ describe Fast::Priority do
         error = semantic_error_of(input)
         expect(error).to be(:kind_of?, Fast::Priority::ParseError)
         expect(error.offset).to be(:==, 2)
-        expect(error.message).to be(:include?, "Integer 0..7") if input.start_with?("u=")
       end
     end
 
@@ -163,12 +161,6 @@ describe Fast::Priority do
       # so a;b=1 is a legal member the error walk must cross intact.
       expect(semantic_error_of("a;b=1, u=9").offset).to be(:==, 9)
       expect(semantic_error_of("a, u=9").offset).to be(:==, 5)
-    end
-
-    it "names the parameter and the requirement" do
-      expect(semantic_error_of("u=9").message).to be(:include?, "urgency")
-      expect(semantic_error_of("i=1").message).to be(:include?, "incremental")
-      expect(semantic_error_of("i=1").message).to be(:include?, "Boolean")
     end
 
     it "raises TypeError for a wrong input type, as parse" do
@@ -252,7 +244,6 @@ describe Fast::Priority do
         error = e
       end
       expect(error).to be(:kind_of?, Fast::Priority::Error)
-      expect(error.message).to be(:include?, "bare item")
       expect(error.offset).to be(:==, 4)
       expect { Fast::Priority::H2.encode_payload(5, bad) }
         .to raise_exception(Fast::Priority::SerializeError)

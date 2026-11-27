@@ -145,7 +145,7 @@ module Fast
             offsets[key] = member.value_start if violations.key?(key)
           end
           key = violations.keys.min_by { |offender| offsets.fetch(offender) }
-          raise ParseError.new("#{key}: #{value_rule} (got #{shown(violations.fetch(key))})", offsets.fetch(key))
+          raise ParseError.new("#{key}: #{value_rule}, received #{shown(violations.fetch(key))}", offsets.fetch(key))
         end
 
         # What a semantic error shows of the offending member: the bare
@@ -189,7 +189,7 @@ module Fast
         when Hash
           nil
         else
-          raise SerializeError.new("members are a Hash (got #{shape(members)})", 0)
+          raise SerializeError.new("members must be a Hash, received #{shape(members)}", 0)
         end
 
         held = {}
@@ -282,7 +282,7 @@ module Fast
         check_key(key)
         return if self.class.send(:value_ok?, value)
 
-        raise SerializeError.new("#{key}: #{self.class.send(:value_rule)} (got #{shape(value)})", 0)
+        raise SerializeError.new("#{key}: #{self.class.send(:value_rule)}, received #{shape(value)}", 0)
       end
 
       # The class of a value an error message names, or a placeholder
@@ -351,7 +351,7 @@ module Fast
       # The wording a ParseError or SerializeError carries for a member
       # that breaks the constraint.
       def self.value_rule
-        "a Content-Digest value is a Byte Sequence: a String tagged Encoding::ASCII_8BIT"
+        "a Content-Digest value must be a Byte Sequence: a String tagged Encoding::ASCII_8BIT"
       end
       private_class_method :value_ok?, :value_rule
 
@@ -392,7 +392,7 @@ module Fast
       # The wording a ParseError or SerializeError carries for a member
       # that breaks the constraint.
       def self.value_rule
-        "a Repr-Digest value is a Byte Sequence: a String tagged Encoding::ASCII_8BIT"
+        "a Repr-Digest value must be a Byte Sequence: a String tagged Encoding::ASCII_8BIT"
       end
       private_class_method :value_ok?, :value_rule
 
@@ -429,7 +429,7 @@ module Fast
       # The wording a ParseError or SerializeError carries for a member
       # that breaks the constraint.
       def self.value_rule
-        "a Want-Content-Digest value is an Integer 0..10"
+        "a Want-Content-Digest value must be an Integer 0..10"
       end
       private_class_method :value_ok?, :value_rule
     end
@@ -453,7 +453,7 @@ module Fast
       # The wording a ParseError or SerializeError carries for a member
       # that breaks the constraint.
       def self.value_rule
-        "a Want-Repr-Digest value is an Integer 0..10"
+        "a Want-Repr-Digest value must be an Integer 0..10"
       end
       private_class_method :value_ok?, :value_rule
     end

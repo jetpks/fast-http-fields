@@ -94,6 +94,21 @@ Measured traps — idiomatic forms that allocate, rejected here:
 - Multi-value returns pack an Array per call; phase extractions
   return one value or none.
 
+### Error message wording
+
+- A requirement message leads with the requirement: "<subject> must
+  be <requirement>, received <actual>" — the received material is
+  the `shape()`/`shown()`/`.class` text the site already renders,
+  comma-introduced, never parenthesized as `(got …)`.
+- Never observation-phrasing for a requirement ("X is a Y (got Z)",
+  "members are a Y"): it reads as if the received value were the
+  required one.
+- A message describing wire content — a parse-side grammar
+  observation ("unexpected content after the value", "list members
+  are separated by ','") — is a description, not a requirement; it
+  keeps its descriptive wording. The already-clear `must be` sites
+  keep their phrasing and parentheticals; no retrofit.
+
 ### Method length
 
 - Methods read as named phases; ~30 code lines is the working
@@ -112,6 +127,13 @@ Measured traps — idiomatic forms that allocate, rejected here:
   measurement must stay clean).
 - Tests are terse, exercising public interfaces only.
 - No mock/stub of the class under test.
+- Tests assert the exception class — and `#offset` where position
+  discriminates — never message text: messages stay free to change.
+  Where the class alone cannot discriminate the failure mode,
+  restructure to an observable behavior. The one standing exception:
+  a parity assertion comparing two errors' messages to each other
+  (the region scan against the parser) pins no wording, so a rewording
+  that moves both sides leaves it green.
 
 ## Local Reference Sources
 

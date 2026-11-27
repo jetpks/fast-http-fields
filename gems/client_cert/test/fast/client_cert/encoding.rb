@@ -50,18 +50,15 @@ describe "the encoding boundaries" do
       error = strict_error_of(Fast::ClientCert::Cert, "1".encode("UTF-16LE"))
       expect(error).to be(:kind_of?, Fast::ClientCert::ParseError)
       expect(error.offset).to be(:==, 1)
-      expect(error.message).to be(:include?, "unexpected content after the value")
       error = strict_error_of(Fast::ClientCert::Chain, "1".encode("UTF-16LE"))
       expect(error).to be(:kind_of?, Fast::ClientCert::ParseError)
       expect(error.offset).to be(:==, 2)
-      expect(error.message).to be(:include?, "list members are separated")
     end
 
     it "wraps the line rejection at the line's start in the combined value" do
       [Fast::ClientCert::Cert, Fast::ClientCert::Chain].each do |field|
         error = strict_error_of(field, CLIENT_CERT_MIXED_LINES)
         expect(error.offset).to be(:==, 12)
-        expect(error.message).to be(:include?, "(got UTF-32BE)")
       end
     end
   end

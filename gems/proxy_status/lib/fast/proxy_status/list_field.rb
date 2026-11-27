@@ -180,7 +180,9 @@ module Fast
         # The member constraint, positioned at the member's identifier.
         def fail_member!(input, index, member)
           offset = member_value_offset(input, index)
-          raise self::ParseError.new("a #{field_label} member is a String or Token (got #{shown(member)})", offset)
+          raise self::ParseError.new(
+            "a #{field_label} member must be a String or Token, received #{shown(member)}", offset
+          )
         end
 
         # The field's parameter constraints over one member, in the
@@ -194,7 +196,7 @@ module Fast
             next if rule.nil? || member_class.param_ok?(key, value)
 
             offset = param_value_offset(input, index, key)
-            raise self::ParseError.new("#{key}: the value is #{rule} (got #{value})", offset)
+            raise self::ParseError.new("#{key}: the value must be #{rule}, received #{value}", offset)
           end
         end
 
@@ -339,7 +341,7 @@ module Fast
         when Array
           nil
         else
-          raise self.class::SerializeError.new("members are an Array of #{klass} (got #{shape(members)})", 0)
+          raise self.class::SerializeError.new("members must be an Array of #{klass}, received #{shape(members)}", 0)
         end
 
         members.each { |member| check_member!(member) }
@@ -353,7 +355,7 @@ module Fast
         when klass
           nil
         else
-          raise self.class::SerializeError.new("a member is a #{klass} (got #{shape(member)})", 0)
+          raise self.class::SerializeError.new("a member must be a #{klass}, received #{shape(member)}", 0)
         end
       end
 
@@ -517,7 +519,8 @@ module Fast
         def check_value!(value)
           return if self.class.identifier_value?(value)
 
-          raise self.class.send(:serialize_error, "a member identifier is a String or a Token (got #{shape(value)})")
+          raise self.class.send(:serialize_error,
+                                "a member identifier must be a String or a Token, received #{shape(value)}")
         end
 
         # The params boundary: a Hash of Structured Fields keys, each
@@ -532,7 +535,7 @@ module Fast
             end
             params.freeze
           else
-            raise self.class.send(:serialize_error, "params are a Hash (got #{shape(params)})")
+            raise self.class.send(:serialize_error, "params must be a Hash, received #{shape(params)}")
           end
         end
 
@@ -573,12 +576,12 @@ module Fast
           if rule
             return if self.class.param_ok?(key, value)
 
-            raise self.class.send(:serialize_error, "#{key}: the value is #{rule} (got #{shape(value)})")
+            raise self.class.send(:serialize_error, "#{key}: the value must be #{rule}, received #{shape(value)}")
           end
           return if self.class.bare_type?(value)
 
           raise self.class.send(:serialize_error,
-                                "#{key}: the value is a bare Structured Fields type (got #{shape(value)})")
+                                "#{key}: the value must be a bare Structured Fields type, received #{shape(value)})")
         end
       end
     end

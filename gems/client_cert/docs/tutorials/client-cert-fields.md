@@ -127,7 +127,7 @@ require "fast/client_cert"
 begin
   Fast::ClientCert::Chain.parse!(":aGVsbG8=:, 5")
 rescue Fast::ClientCert::ParseError => e
-  e.message  # => "a Client-Cert-Chain member is a Byte Sequence (got Integer)"
+  e.message  # => "a Client-Cert-Chain member must be a Byte Sequence, received Integer"
   e.offset   # => 12
 end
 ```

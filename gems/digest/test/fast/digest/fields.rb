@@ -211,11 +211,10 @@ describe Fast::Digest do
   end
 
   describe ".parse!" do
-    it "wraps the SFV Dictionary failure with its message and offset" do
+    it "wraps the SFV Dictionary failure with its offset" do
       error = strict_error_of(Fast::Digest::ReprDigest, "!!")
       expect(error).to be(:kind_of?, Fast::Digest::ParseError)
       expect(error.offset).to be(:==, 0)
-      expect(error.message.length).to be(:>, 0)
     end
 
     it "positions the Integrity member errors at the value, frozen pins" do
@@ -234,14 +233,6 @@ describe Fast::Digest do
       end
     end
 
-    it "names the member, the field and the required shape" do
-      error = strict_error_of(Fast::Digest::WantReprDigest, "sha-256=11")
-      expect(error.message).to be(:include?, "sha-256")
-      expect(error.message).to be(:include?, "Integer 0..10")
-      error = strict_error_of(Fast::Digest::ReprDigest, "sha-256=5")
-      expect(error.message).to be(:include?, "Byte Sequence")
-    end
-
     it "raises at the effective, last-wins member" do
       expect(strict_error_of(Fast::Digest::ReprDigest, "sha-256=:AAAA:, sha-256=5").offset).to be(:==, 24)
       expect(strict_error_of(Fast::Digest::WantReprDigest, "sha-256=3, sha-256=11").offset).to be(:==, 19)
@@ -254,7 +245,6 @@ describe Fast::Digest do
       # named and positioned, not the effective rebound key.
       error = strict_error_of(Fast::Digest::WantReprDigest, %(sha-256=3, foo=%"\", sha-256=11))
       expect(error.offset).to be(:==, 15)
-      expect(error.message).to be(:include?, "foo")
       control = strict_error_of(Fast::Digest::WantReprDigest, %(foo=%"a", sha-256=11))
       expect(control.offset).to be(:==, 4)
     end

@@ -17,7 +17,6 @@ describe "the documented examples" do
     end
     expect(error).to be(:kind_of?, Fast::SFV::ParseError)
     expect(error.offset).to be(:==, 4)
-    expect(error.message).to be(:==, "unexpected content after the value at offset 4")
   end
 
   it "rejects the how-to guide's unjoinable field line at offset 5" do
@@ -29,6 +28,5 @@ describe "the documented examples" do
     end
     expect(error).to be(:kind_of?, Fast::SFV::ParseError)
     expect(error.offset).to be(:==, 5)
-    expect(error.message).to be(:==, "a field line must be an ASCII-compatible encoding (got UTF-16LE) at offset 5")
   end
 end

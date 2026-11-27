@@ -293,7 +293,9 @@ module Fast
       # member), so it survives the members a private walk would
       # desync on.
       def fail_member!(key, member, input)
-        raise ParseError.new("#{key}: the value is #{rule_for(key)} (got #{shown(member)})", value_offset(input, key))
+        raise ParseError.new(
+          "#{key}: the value must be #{rule_for(key)}, received #{shown(member)}", value_offset(input, key)
+        )
       end
 
       # The byte the effective (last-wins) +key+ member's VALUE starts
@@ -524,7 +526,7 @@ module Fast
       when Hash
         nil
       else
-        raise SerializeError.new("members are a Hash (got #{shape(members)})", 0)
+        raise SerializeError.new("members must be a Hash, received #{shape(members)}", 0)
       end
 
       held = {}
@@ -580,7 +582,7 @@ module Fast
     def check_value!(key, value)
       return if self.class.send(:value_ok?, key, value)
 
-      raise SerializeError.new("#{key}: the value is #{rule_for(key)} (got #{shape(value)})", 0)
+      raise SerializeError.new("#{key}: the value must be #{rule_for(key)}, received #{shape(value)}", 0)
     end
 
     # The rule one directive's value must satisfy, worded for the

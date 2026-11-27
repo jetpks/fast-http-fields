@@ -135,13 +135,13 @@ end
 begin
   Fast::ProxyStatus.append(nil, 5)
 rescue Fast::ProxyStatus::SerializeError => e
-  e.message  # => "a member identifier is a String or a Token (got 5)"
+  e.message  # => "a member identifier must be a String or a Token, received Integer"
 end
 
 begin
   Fast::ProxyStatus.append(nil, Fast::SFV::Token.new("x"), { "error" => "str" })
 rescue Fast::ProxyStatus::SerializeError => e
-  e.message  # => "error: the value is a Token (got \"str\")"
+  e.message  # => "error: the value must be a Token, received String"
 end
 ```
 
