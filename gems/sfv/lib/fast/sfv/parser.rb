@@ -81,10 +81,11 @@ module Fast
 
       # The input is one String field value, or the field's lines as an
       # Array, combined with ", " (§4.2's combining rule — a Rack join
-      # conforms). Anything else is a caller bug: TypeError, not a
+      # conforms; the one FieldValue implementation, shared with the
+      # region scan). Anything else is a caller bug: TypeError, not a
       # Fast::SFV::Error.
       def initialize(input)
-        @input = field_value(input)
+        @input = FieldValue.of(input)
         @pos = 0
         @end = @input.bytesize
       end
@@ -124,35 +125,22 @@ module Fast
 
       private
 
-      # The field value the scanner walks: a String as given, or the lines
-      # joined with ", " (each line a String, a subclass included).
-      def field_value(input)
-        case input
-        when String
-          input
-        when Array
-          input.each do |line|
-            next if line.is_a?(String)
-
-            got = defined?(line.class) ? line.class : "a classless object"
-            raise TypeError, "an Array of String field lines is required (got #{got})"
-          end
-          input.join(", ")
-        else
-          got = defined?(input.class) ? input.class : "a classless object"
-          raise TypeError, "a String or an Array of String field lines is required (got #{got})"
-        end
-      end
-
       # §4.2 step 1: the whole field value must be ASCII — a byte above
       # 0x7F fails the parse before any grammar runs. ascii_only? is the
       # one-scan hot path; the walk runs only on failure, to find the
-      # offset the error reports.
+      # offset the error reports. The walk is bounded at @end: a
+      # non-ASCII-compatible encoding can spell a byte string whose every
+      # byte is ASCII-range (UTF-16LE "1" is "1\x00"), and getbyte past
+      # the end answers nil — so a walk that completes with no offending
+      # byte simply returns, and the grammar rejects the value positioned
+      # (the padding NUL is in no grammar class).
       def check_ascii
         return if @input.ascii_only?
 
         index = 0
-        index += 1 while @input.getbyte(index) <= 0x7F
+        index += 1 while index < @end && @input.getbyte(index) <= 0x7F
+        return if index >= @end
+
         @pos = index
         fail_parse("the field value must be ASCII")
       end
