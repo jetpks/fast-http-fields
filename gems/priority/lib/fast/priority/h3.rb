@@ -151,7 +151,9 @@ module Fast
                 end
         return if valid
 
-        raise SerializeError.new("the prioritized element ID is an Integer 0..2^62-1 (got #{shape(element_id)})", 0)
+        raise SerializeError.new(
+          "the prioritized element ID must be an Integer 0..2^62-1, received #{shape(element_id)}", 0
+        )
       end
 
       # The class of a value an error message names, or a placeholder

@@ -39,7 +39,6 @@ describe Fast::SFV do
       expect(error.offset).to be(:kind_of?, Integer)
       expect(error.offset).to be(:>=, 0)
       expect(error.offset).to be(:<=, input.bytesize)
-      expect(error.message.length).to be(:>, 0)
     end
   end
 

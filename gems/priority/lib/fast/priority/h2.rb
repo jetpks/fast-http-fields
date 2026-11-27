@@ -119,7 +119,7 @@ module Fast
         return if valid
 
         raise SerializeError.new(
-          "the prioritized stream ID is an Integer 1..0x7FFFFFFF, never 0 (got #{shape(stream_id)})", 0
+          "the prioritized stream ID must be an Integer 1..0x7FFFFFFF, never 0, received #{shape(stream_id)}", 0
         )
       end
 

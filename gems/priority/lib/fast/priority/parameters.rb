@@ -180,7 +180,7 @@ module Fast
                 end
         return if valid
 
-        raise SerializeError.new("urgency is an Integer 0..7 (got #{shape(urgency)})", 0)
+        raise SerializeError.new("urgency must be an Integer 0..7, received #{shape(urgency)}", 0)
       end
 
       # §4.2's bound at the boundary, before any member is built.
@@ -189,7 +189,7 @@ module Fast
         when nil, true, false
           nil
         else
-          raise SerializeError.new("incremental is a Boolean (got #{shape(incremental)})", 0)
+          raise SerializeError.new("incremental must be a Boolean, received #{shape(incremental)}", 0)
         end
       end
 
@@ -206,7 +206,7 @@ module Fast
             members[key] = value
           end
         else
-          raise SerializeError.new("unknown members are a Hash (got #{shape(unknown)})", 0)
+          raise SerializeError.new("unknown members must be a Hash, received #{shape(unknown)}", 0)
         end
       end
 
@@ -221,7 +221,8 @@ module Fast
         return if valid
 
         raise SerializeError.new(
-          "an unknown member's key is a String other than u and i, set through the keywords (got #{shape(key)})", 0
+          "an unknown member's key must be a String other than u and i, " \
+          "set through the keywords, received #{shape(key)}", 0
         )
       end
 
@@ -233,7 +234,7 @@ module Fast
           nil
         else
           raise SerializeError.new(
-            "an unknown member's value is a Fast::SFV Item or InnerList (got #{shape(value)})", 0
+            "an unknown member's value must be a Fast::SFV Item or InnerList, received #{shape(value)}", 0
           )
         end
       end

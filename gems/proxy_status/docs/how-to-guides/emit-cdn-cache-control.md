@@ -99,7 +99,7 @@ The refuse-on-emit example:
 begin
   Fast::TargetedCacheControl.new({ "max-age" => 1.5 })
 rescue Fast::TargetedCacheControl::SerializeError => e
-  e.message  # => "max-age: the value is an Integer (got 1.5)"
+  e.message  # => "max-age: the value must be an Integer, received 1.5"
   e.offset   # => 0
 end
 ```

@@ -36,7 +36,7 @@ require "fast/client_cert"
 begin
   Fast::ClientCert::Cert.parse!("5")
 rescue Fast::ClientCert::ParseError => e
-  e.message  # => "Client-Cert: the value is a Byte Sequence (got Integer)"
+  e.message  # => "Client-Cert: the value must be a Byte Sequence, received Integer"
   e.offset  # => 0
 end
 

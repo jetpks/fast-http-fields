@@ -116,7 +116,7 @@ begin
   Fast::CacheStatus.parse!("foo; ttl=1.5")
 rescue Fast::CacheStatus::ParseError => e
   e.offset   # => 9
-  e.message  # => "ttl: the value is an Integer (got 1.5)"
+  e.message  # => "ttl: the value must be an Integer, received 1.5"
 end
 ```
 

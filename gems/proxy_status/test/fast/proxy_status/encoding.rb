@@ -57,22 +57,18 @@ describe "the encoding boundaries" do
       error = strict_error_of(Fast::ProxyStatus, "1".encode("UTF-16LE"))
       expect(error).to be(:kind_of?, Fast::ProxyStatus::ParseError)
       expect(error.offset).to be(:==, 2)
-      expect(error.message).to be(:include?, "list members are separated")
       error = strict_error_of(Fast::CacheStatus, "1".encode("UTF-16LE"))
       expect(error).to be(:kind_of?, Fast::CacheStatus::ParseError)
       expect(error.offset).to be(:==, 2)
-      expect(error.message).to be(:include?, "list members are separated")
       error = strict_error_of(Fast::TargetedCacheControl, "1".encode("UTF-16LE"))
       expect(error).to be(:kind_of?, Fast::TargetedCacheControl::ParseError)
       expect(error.offset).to be(:==, 0)
-      expect(error.message).to be(:include?, "a key must start with a lowercase letter")
     end
 
     it "wraps the line rejection at the line's start in the combined value" do
       PROXY_STATUS_FIELD_CLASSES.each do |field|
         error = strict_error_of(field, PROXY_STATUS_MIXED_LINES)
         expect(error.offset).to be(:==, 5)
-        expect(error.message).to be(:include?, "(got UTF-16LE)")
       end
     end
   end

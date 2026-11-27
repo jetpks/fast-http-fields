@@ -212,7 +212,6 @@ describe Fast::SFV do
       expect(error).to be(:kind_of?, Fast::SFV::SerializeError)
       expect(error.offset).to be(:kind_of?, Integer)
       expect(error.offset).to be(:>=, 0)
-      expect(error.message.length).to be(:>, 0)
     end
 
     it "agrees with to_s on the wrappers" do

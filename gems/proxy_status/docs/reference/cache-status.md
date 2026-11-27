@@ -64,7 +64,7 @@ The refuse example:
 begin
   Fast::CacheStatus::Cache.new(Fast::SFV::Token.new("x"), { "fwd" => Fast::SFV::Token.new("weird") })
 rescue Fast::CacheStatus::SerializeError => e
-  e.message  # => "fwd: the value is a Token of the 2.2 set (bypass, method, uri-miss, vary-miss, miss, request, stale, partial)"
+  e.message  # => "fwd: the value must be a Token of the 2.2 set (bypass, method, uri-miss, vary-miss, miss, request, stale, partial)"
 end
 ```
 

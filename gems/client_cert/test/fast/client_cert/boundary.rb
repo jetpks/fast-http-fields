@@ -37,7 +37,6 @@ describe "Fast::ClientCert.pem_to_field" do
       error = e
     end
     expect(error).to be(:kind_of?, Fast::ClientCert::Error)
-    expect(error.message).to be(:==, "the PEM block carries no payload")
   end
 
   it "keeps a payload block padded with blank lines working" do

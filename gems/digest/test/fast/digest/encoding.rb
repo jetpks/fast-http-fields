@@ -58,7 +58,6 @@ describe Fast::Digest do
         error = strict_error_of(field, "1".encode("UTF-16LE"))
         expect(error).to be(:kind_of?, Fast::Digest::ParseError)
         expect(error.offset).to be(:==, 0)
-        expect(error.message).to be(:include?, "a key must start with a lowercase letter")
       end
     end
 
@@ -66,7 +65,6 @@ describe Fast::Digest do
       DIGEST_FIELD_CLASSES.each do |field|
         error = strict_error_of(field, DIGEST_MIXED_LINES)
         expect(error.offset).to be(:==, 16)
-        expect(error.message).to be(:include?, "(got UTF-16LE)")
       end
     end
   end

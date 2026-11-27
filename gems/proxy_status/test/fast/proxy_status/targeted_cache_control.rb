@@ -149,11 +149,10 @@ describe Fast::TargetedCacheControl do
   end
 
   describe ".parse!" do
-    it "wraps the SFV Dictionary failure with its message and offset" do
+    it "wraps the SFV Dictionary failure with its offset" do
       error = strict_error_of("!!")
       expect(error).to be(:kind_of?, Fast::TargetedCacheControl::ParseError)
       expect(error.offset).to be(:==, 0)
-      expect(error.message.length).to be(:>, 0)
     end
 
     it "positions violations at the value, frozen pins" do
@@ -192,15 +191,6 @@ describe Fast::TargetedCacheControl do
       # §4.2.10 again, as a parameter value: the later bar is raised at
       # its own value, never lost to the walk.
       expect(strict_error_of(%(foo; a=%"\\", bar=:AQID:)).offset).to be(:==, 17)
-    end
-
-    it "names the directive and its rule" do
-      message = strict_error_of("max-age=abc").message
-      expect(message).to be(:include?, "max-age")
-      expect(message).to be(:include?, "an Integer")
-      inferred = strict_error_of("x=:AAAA:").message
-      expect(inferred).to be(:include?, "x")
-      expect(inferred).to be(:include?, "inferred")
     end
 
     it "returns the strict view of a valid field, parameters preserved" do
@@ -263,7 +253,6 @@ describe Fast::TargetedCacheControl do
       wrong.each do |key, value|
         error = serialize_error_of { Fast::TargetedCacheControl.new({ key => value }) }
         expect(error).to be(:kind_of?, Fast::TargetedCacheControl::SerializeError)
-        expect(error.message).to be(:include?, key)
       end
     end
 

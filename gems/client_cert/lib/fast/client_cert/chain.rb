@@ -73,7 +73,7 @@ module Fast
             member = members[index]
             unless member_ok?(member)
               raise ParseError.new(
-                "a Client-Cert-Chain member is a Byte Sequence (got #{Checks.shown(member)})",
+                "a Client-Cert-Chain member must be a Byte Sequence, received #{Checks.shown(member)}",
                 member_offset(input, index)
               )
             end
@@ -148,13 +148,15 @@ module Fast
         when Array
           nil
         else
-          raise SerializeError.new("Client-Cert-Chain members are an Array (got #{shape(ders)})", 0)
+          raise SerializeError.new("Client-Cert-Chain members must be an Array, received #{shape(ders)}", 0)
         end
 
         items = []
         ders.each do |der|
           unless Checks.byte_sequence?(der)
-            raise SerializeError.new("a Client-Cert-Chain member is a Byte Sequence (got #{Checks.shown(der)})", 0)
+            raise SerializeError.new(
+              "a Client-Cert-Chain member must be a Byte Sequence, received #{Checks.shown(der)}", 0
+            )
           end
 
           items << Item.new(der.freeze, EMPTY_PARAMS)
@@ -211,7 +213,7 @@ module Fast
                 else
                   false
                 end
-        raise ArgumentError, "per_line is a positive Integer (got #{shape(per_line)})" unless valid
+        raise ArgumentError, "per_line must be a positive Integer, received #{shape(per_line)}" unless valid
 
         lines = []
         index = 0

@@ -55,7 +55,7 @@ module Fast
           return from_item(item) if Checks.byte_sequence?(item.value)
 
           raise ParseError.new(
-            "Client-Cert: the value is a Byte Sequence (got #{Checks.shown(item)})", value_offset(input)
+            "Client-Cert: the value must be a Byte Sequence, received #{Checks.shown(item)}", value_offset(input)
           )
         rescue SFV::ParseError => e
           raise ParseError.new(e.message, e.offset)
@@ -111,7 +111,7 @@ module Fast
       # SerializeError before anything is emitted.
       def initialize(der)
         unless Checks.byte_sequence?(der)
-          raise SerializeError.new("Client-Cert: the value is a Byte Sequence (got #{Checks.shown(der)})", 0)
+          raise SerializeError.new("Client-Cert: the value must be a Byte Sequence, received #{Checks.shown(der)}", 0)
         end
 
         hold(SFV::Item.new(der.freeze, EMPTY_PARAMS))

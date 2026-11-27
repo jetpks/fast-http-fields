@@ -371,7 +371,7 @@ module Fast
         return unless self.class.token_value?(value)
         return if FWD.include?(value)
 
-        raise SerializeError.new("fwd: the value is a Token of the 2.2 set (#{FWD.join(', ')})", 0)
+        raise SerializeError.new("fwd: the value must be a Token of the 2.2 set (#{FWD.join(', ')})", 0)
       end
     end
 
