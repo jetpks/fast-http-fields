@@ -6,8 +6,8 @@ module Fast
     # REQUEST_TYPE (0xF0700, request streams) and PUSH_TYPE (0xF0701,
     # push streams) are the frame header's type field — the constants a
     # caller cites. The type is itself a QUIC variable-length integer
-    # on the wire (0xF0700 = 984576, a 4-byte form, spelled 8f 07 00),
-    # and it lives in the frame header, never in this payload.
+    # on the wire (0xF0700 = 984832, a 4-byte form, spelled 80 0f 07
+    # 00), and it lives in the frame header, never in this payload.
     #
     # The payload is Figure 2's tail: the Prioritized Element ID — "The
     # stream ID or push ID that is the target of the priority update" —

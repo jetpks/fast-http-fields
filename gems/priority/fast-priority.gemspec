@@ -42,8 +42,9 @@ Gem::Specification.new do |spec|
   spec.metadata["documentation_uri"] = "https://github.com/jetpks/fast-http-fields/tree/main/gems/priority/docs"
   spec.metadata["rubygems_mfa_required"] = "true"
 
-  # Exactly one runtime dependency, unconstrained: fast-sfv is the
-  # family substrate this gem parses and emits through (BRIEF §2) —
-  # the protocol stacks are test-group peers, never dependencies.
-  spec.add_dependency "fast-sfv"
+  # Exactly one runtime dependency: fast-sfv, 0.2 or later within
+  # the 0.x series — the Structured Field Values substrate this gem
+  # parses and emits through; the protocol stacks are test-group
+  # peers, never dependencies.
+  spec.add_dependency "fast-sfv", "~> 0.2"
 end

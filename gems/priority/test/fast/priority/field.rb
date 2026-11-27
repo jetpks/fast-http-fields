@@ -150,6 +150,21 @@ describe Fast::Priority do
       expect(semantic_error_of(["u=1", "u=9"]).offset).to be(:==, 7)
     end
 
+    it "positions after a display string whose content ends in a backslash" do
+      # RFC 9651 §4.2.10: a display string's backslash is literal
+      # content and only DQUOTE closes, so x=%"\" is a legal member
+      # the error walk must cross intact.
+      expect(semantic_error_of(%(x=%"\\", u=9)).offset).to be(:==, 10)
+      expect(semantic_error_of(%(x=%"a", u=9)).offset).to be(:==, 10)
+    end
+
+    it "positions after a parameter on the valueless member" do
+      # §4.2.2 step 3 parses parameters on the implicit Boolean true,
+      # so a;b=1 is a legal member the error walk must cross intact.
+      expect(semantic_error_of("a;b=1, u=9").offset).to be(:==, 9)
+      expect(semantic_error_of("a, u=9").offset).to be(:==, 5)
+    end
+
     it "names the parameter and the requirement" do
       expect(semantic_error_of("u=9").message).to be(:include?, "urgency")
       expect(semantic_error_of("i=1").message).to be(:include?, "incremental")
@@ -221,6 +236,28 @@ describe Fast::Priority do
       inner = Fast::Priority::Parameters.new(unknown: { "foo" => Fast::SFV::InnerList.new([item], {}) })
       expect(inner.to_s).to be(:==, "foo=(1)")
       expect(inner.unknown.frozen?).to be(:==, true)
+    end
+
+    it "rewraps a substrate SerializeError into Fast::Priority's own" do
+      # A hand-built unknown member that passes construction (the
+      # check reads the class) but cannot serialize must still raise
+      # a Fast::Priority failure — the one-rescue guarantee: every
+      # failure this gem raises descends from Fast::Priority::Error.
+      bad = Fast::Priority::Parameters.new(unknown: { "foo" => Fast::SFV::Item.new(:sym, {}) })
+      expect { bad.to_s }.to raise_exception(Fast::Priority::SerializeError)
+      error = nil
+      begin
+        bad.to_s
+      rescue Fast::Priority::SerializeError => e
+        error = e
+      end
+      expect(error).to be(:kind_of?, Fast::Priority::Error)
+      expect(error.message).to be(:include?, "bare item")
+      expect(error.offset).to be(:==, 4)
+      expect { Fast::Priority::H2.encode_payload(5, bad) }
+        .to raise_exception(Fast::Priority::SerializeError)
+      expect { Fast::Priority::H3.encode_payload(5, bad) }
+        .to raise_exception(Fast::Priority::SerializeError)
     end
 
     it "merges by the RFC 9218 8 example" do

@@ -86,8 +86,14 @@ module Fast
       # serialization of the held members, "" when none are held — a
       # sender omits the field entirely, the same reason
       # Fast::SFV.serialize_dict answers nil for the empty Dictionary.
+      # A member that cannot serialize raises Fast::Priority's own
+      # SerializeError — the substrate's failure rewrapped with its
+      # message and offset, so every failure this gem raises descends
+      # from Fast::Priority::Error and one rescue catches them all.
       def to_s
         SFV.serialize_dict(@members) || ""
+      rescue SFV::SerializeError => e
+        raise SerializeError.new(e.message, e.offset)
       end
 
       # RFC 9218 §8: "No guidance is provided for merging priorities;

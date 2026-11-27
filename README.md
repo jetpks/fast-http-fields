@@ -9,7 +9,7 @@ Parse what is really on the wire, emit the canonical form, frozen value objects,
 | Gem | What it's for | Fields | RFC | Install | Current release |
 |-----|---------------|--------|-----|---------|-----------------|
 | [`fast-sfv`](gems/sfv/README.md) | the grammar every other gem builds on: parse and emit Structured Field Values | Structured Field Values | RFC 9651 | `gem install fast-sfv` | 0.2.0 |
-| [`fast-priority`](gems/priority/README.md) | read and send the Priority field and the HTTP/2/HTTP/3 PRIORITY_UPDATE frame payloads | Priority, PRIORITY_UPDATE | RFC 9218 | `gem install fast-priority` | 0.1.0 |
+| [`fast-priority`](gems/priority/README.md) | read and send the Priority field and the HTTP/2/HTTP/3 PRIORITY_UPDATE frame payloads | Priority, PRIORITY_UPDATE | RFC 9218 | `gem install fast-priority` | 0.1.1 |
 | [`fast-digest`](gems/digest/README.md) | content and representation digests: check what you received, say what you sent | Content-Digest, Repr-Digest, Want-Content-Digest, Want-Repr-Digest | RFC 9530 | `gem install fast-digest` | 0.1.0 |
 | [`fast-proxy-status`](gems/proxy_status/README.md) | the diagnostics family: Proxy-Status, Cache-Status and Targeted Cache Control | Proxy-Status, Cache-Status, CDN-Cache-Control | RFC 9209, RFC 9211, RFC 9213 | `gem install fast-proxy-status` | 0.1.0 |
 | [`fast-client-cert`](gems/client_cert/README.md) | the client certificate a proxy forwards to your origin | Client-Cert, Client-Cert-Chain | RFC 9440 | `gem install fast-client-cert` | 0.1.0 |

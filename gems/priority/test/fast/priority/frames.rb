@@ -87,6 +87,23 @@ describe Fast::Priority do
       expect { Fast::Priority::H2.encode_payload(-1, priority) }.to raise_exception(Fast::Priority::SerializeError)
     end
 
+    it "refuses to emit a prioritized stream ID of 0" do
+      # RFC 9218 §7.1: a received prioritized stream ID of 0x0 is an
+      # unconditional connection error of type PROTOCOL_ERROR, so a
+      # strict sender never puts one on the wire.
+      priority = Fast::Priority.parse("u=1, i")
+      error = nil
+      begin
+        Fast::Priority::H2.encode_payload(0, priority)
+      rescue Fast::Priority::SerializeError => e
+        error = e
+      end
+      expect(error).to be(:kind_of?, Fast::Priority::Error)
+      expect(error.message).to be(:==, "the prioritized stream ID is an Integer 1..0x7FFFFFFF, never 0 (got 0)")
+      expect(error.offset).to be(:==, 0)
+      expect(Fast::Priority::H2.encode_payload(1, priority).unpack1("H*")).to be(:==, "00000001753d312c2069")
+    end
+
     it "round-trips the 31-bit limit" do
       priority = Fast::Priority.parse("u=1, i")
       frame = Fast::Priority::H2.decode_payload(Fast::Priority::H2.encode_payload(0x7FFF_FFFF, priority))
