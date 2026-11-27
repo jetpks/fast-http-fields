@@ -72,7 +72,7 @@ See [Diagnose a rejected field value](docs/how-to-guides/diagnose-failures.md) a
 
 ## Documentation
 
-Current release 0.1.0. Changelog at [CHANGELOG.md](CHANGELOG.md). The docs tree is also linked from the gemspec metadata `documentation_uri`.
+Current release 0.2.0. Changelog at [CHANGELOG.md](CHANGELOG.md). The docs tree is also linked from the gemspec metadata `documentation_uri`.
 
 ### Tutorial
 
