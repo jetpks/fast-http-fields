@@ -11,8 +11,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Every supported minor, from the floor (required_ruby_version) to
-        # the dev version; mise resolves each to its latest patch.
+        # Every supported minor, and only those: 3.4 is the floor (the
+        # required_ruby_version every gemspec declares) and 4.0 is the
+        # dev version (mise.toml and .ruby-version, the interpreter
+        # this repo develops on); mise resolves each entry to its
+        # latest stable patch. Ruby 3.5 has no stable release yet —
+        # mise ls-remote ruby lists the series only as previews, and
+        # the bare "3.5" prefix does not resolve (ruby-build:
+        # definition not found) — so it rides no leg; the series
+        # joins here, by bare prefix, at its stable release.
         ruby: ["3.4", "4.0"]
     env:
       BUNDLE_PATH: vendor/bundle

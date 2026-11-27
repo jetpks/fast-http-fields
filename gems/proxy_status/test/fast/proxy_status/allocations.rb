@@ -39,7 +39,7 @@ require "fast/proxy_status"
 # 32 (three members, the combined String the Array join builds, and
 # the parse's own count over them); the malformed fall 8; the
 # member-violation fall 13 (the substrate region scan's price, as the
-# Proxy-Status path pays it); the strict parse 13 and the valid?
+# Proxy-Status path pays it); the strict parse 11 and the valid?
 # mirror 17 (the region scan runs only on the error path, so the clean
 # paths count the parse's own); the Cache construction 2 (the default params
 # Hash and the frozen Cache); the append on a held value 4 (the members
