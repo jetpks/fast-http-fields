@@ -28,121 +28,26 @@ module Fast
     EMPTY_PARAMS = {}.freeze
     private_constant :EMPTY_PARAMS
 
+    # A 256-entry byte class: true for every byte of +spec+ — the
+    # byte-table shape Fast::SFV's own scanners walk with.
+    def self.byte_class(spec)
+      table = Array.new(256, false)
+      spec.each_byte { |byte| table[byte] = true }
+      table.freeze
+    end
+
+    # A Dictionary key's first byte: lcalpha or "*" (§4.2.3.3 step 1) —
+    # the construction boundary's key grammar, read where a sender's
+    # key is checked.
+    KEY_FIRST = byte_class("abcdefghijklmnopqrstuvwxyz*")
+    # A key's continuation: lcalpha, DIGIT, "_", "-", "." or "*"
+    # (§4.2.3.3) — the class the key check reads a whole key with.
+    KEY_BODY = byte_class("abcdefghijklmnopqrstuvwxyz0123456789_-.*")
+
     # The members a fail-closed parse holds: none — the same answer an
     # absent field gives (RFC 9651 §2.2, RFC 9530 §2).
     EMPTY_MEMBERS = {}.freeze
     private_constant :EMPTY_MEMBERS
-
-    # The strict parse's positioning walk: where each member's VALUE
-    # sits in the combined field value — the byte offset a semantic
-    # ParseError points at. The field value already parsed when this
-    # runs, so the walk only tracks the boundaries: members split on
-    # commas at inner-list depth zero outside quoted strings (RFC 9651
-    # §4.2's separators), a quoted string's commas and parens do not
-    # count (§4.2.5's escapes are skipped two bytes), and a member
-    # without "=" — the implicit Boolean true — offsets at its key's
-    # end, where its value would be written. Every key's offset is
-    # recorded, a later occurrence overwriting an earlier one, because
-    # Fast::SFV applies §4.2's last-wins before the checks read these
-    # offsets — the effective member is the one its value came from.
-    class Scan
-      # A 256-entry byte class: true for every byte of +spec+ — the
-      # byte-table shape Fast::SFV's own scanners walk with.
-      def self.byte_class(spec)
-        table = Array.new(256, false)
-        spec.each_byte { |byte| table[byte] = true }
-        table.freeze
-      end
-
-      # A Dictionary key's first byte: lcalpha or "*" (§4.2.3.3 step 1).
-      KEY_FIRST = byte_class("abcdefghijklmnopqrstuvwxyz*")
-      # A key's continuation: lcalpha, DIGIT, "_", "-", "." or "*"
-      # (§4.2.3.3) — the class the walk reads a whole key with, the
-      # first byte being a member of it.
-      KEY_BODY = byte_class("abcdefghijklmnopqrstuvwxyz0123456789_-.*")
-      # The optional whitespace around a member separator (§4.2.1).
-      OWS = byte_class(" \t")
-
-      COMMA = 0x2C
-      EQUALS = 0x3D
-      LPAREN = 0x28
-      RPAREN = 0x29
-      DQUOTE = 0x22
-      BACKSLASH = 0x5C
-
-      def initialize(combined)
-        @combined = combined
-        @size = combined.bytesize
-      end
-
-      # One walk answers the value offset of every key the Dictionary
-      # parsed — the LAST one seen for each, since the effective member
-      # is the last one Fast::SFV kept.
-      def offsets
-        @offsets = {}
-        index = 0
-        index = member_at(index) while index < @size
-        @offsets
-      end
-
-      private
-
-      # Walks one member from +index+ and answers the index the next
-      # member starts at: leading OWS, the key, the value — its offset
-      # recorded — then the separator. A member that is not followed by
-      # a comma ends the walk.
-      def member_at(index)
-        index += 1 while index < @size && OWS[@combined.getbyte(index)]
-        key_start = index
-        index += 1 while index < @size && KEY_BODY[@combined.getbyte(index)]
-        key_end = index
-        value_offset = index
-        if @combined.getbyte(index) == EQUALS
-          index += 1
-          value_offset = index
-          index = value_end(index)
-        end
-        record(key_start, key_end - key_start, value_offset)
-        index += 1 while index < @size && OWS[@combined.getbyte(index)]
-        return @size unless index < @size && @combined.getbyte(index) == COMMA
-
-        index + 1
-      end
-
-      # Records one member's value offset under its key — the bytes the
-      # Dictionary itself parsed the same key from, so an equal key
-      # overwrites (the last-wins member).
-      def record(key_start, key_size, value_offset)
-        @offsets[@combined.byteslice(key_start, key_size)] = value_offset
-      end
-
-      # The index just past the member VALUE starting at +index+:
-      # quoted strings (§4.2.5 — a DQUOTE opens, a backslash escapes the
-      # next byte, a DQUOTE closes) and inner-list depth (§4.2.1.1's
-      # parens) are tracked, and a comma at depth zero outside a string
-      # — the §4.2 member boundary — stops the walk.
-      def value_end(index)
-        depth = 0
-        quoted = false
-        while index < @size
-          byte = @combined.getbyte(index)
-          if quoted
-            index += byte == BACKSLASH ? 2 : 1
-            quoted = false if byte == DQUOTE
-          else
-            case byte
-            when DQUOTE then quoted = true
-            when LPAREN then depth += 1
-            when RPAREN then depth -= 1
-            when COMMA then return index if depth.zero?
-            end
-            index += 1
-          end
-        end
-        index
-      end
-    end
-    private_constant :Scan
 
     # The shared machinery of the four Digest fields: one RFC 9651
     # Dictionary parse through Fast::SFV, the member constraint the
@@ -178,16 +83,16 @@ module Fast
         # Strict truth. The RFC 9651 Dictionary failure is wrapped with
         # its message and byte offset preserved; then the member
         # constraint applied to the effective (last-wins) Dictionary —
-        # the first offender in Dictionary order raises ParseError
-        # naming the key and pointing at that member's VALUE in the
-        # combined field value (a member without "=", the implicit
-        # Boolean true, at its key's end). Unknown algorithm keys are
-        # valid members and pass through untouched, parameters riding
-        # along (§2.3 of RFC 9651). TypeError for a wrong input type,
-        # as parse.
+        # the first offender in the combined field value's member order
+        # raises ParseError naming the key and pointing at that
+        # member's VALUE (a member without "=", the implicit Boolean
+        # true, at its key's end). Unknown algorithm keys are valid
+        # members and pass through untouched, parameters riding along
+        # (§2.3 of RFC 9651). TypeError for a wrong input type, as
+        # parse.
         def parse!(input)
           dict = SFV.parse_dict(input)
-          check_members!(dict, combined(input))
+          check_members!(dict, input)
           from_members(dict)
         rescue SFV::ParseError => e
           raise ParseError.new(e.message, e.offset)
@@ -206,28 +111,41 @@ module Fast
 
         private
 
-        # The field value the scan positions into: the lines joined with
-        # ", " — the same RFC 9651 §4.2 combining Fast::SFV.parse_dict
-        # applies — a String as given.
-        def combined(input)
-          input.is_a?(Array) ? input.join(", ") : input
-        end
-
         # The member constraint over a parsed Dictionary: every member
         # an Item whose value satisfies the field's shape — §2/§3's Byte
         # Sequence, §4's Integer 0..10 — the "field-specific
         # constraints" whose violation ignores the whole field under
-        # parse. The first offender in Dictionary order is raised at its
-        # value's offset.
-        def check_members!(dict, field_value)
-          return if dict.empty?
-
-          offsets = Scan.new(field_value).offsets
+        # parse. The first offender in the combined field value's member
+        # order is raised at its value's offset: among the violating
+        # keys, the one whose effective (last-wins) member appears
+        # earliest in the field value, positioned by the substrate's
+        # region scan on the error path alone — the clean path pays
+        # nothing for positioning.
+        def check_members!(dict, input)
+          violations = nil
           dict.each do |key, member|
             next if member.is_a?(Item) && value_ok?(member.value)
 
-            raise ParseError.new("#{key}: #{value_rule} (got #{shown(member)})", offsets[key])
+            violations ||= {}
+            violations[key] = member
           end
+          raise_positioned!(violations, input) if violations
+        end
+
+        # The positioned raise for the violating members: the wire-first
+        # offender's effective occurrence — the last one the substrate's
+        # region scan recorded for its key, the member the §4.2
+        # last-wins parse kept — at that occurrence's value start, where
+        # a value would be written for the valueless form.
+        def raise_positioned!(violations, input)
+          regions = SFV.regions_dict(input)
+          offsets = {}
+          regions.members.each do |member|
+            key = regions.combined.byteslice(member.key_start, member.key_end - member.key_start)
+            offsets[key] = member.value_start if violations.key?(key)
+          end
+          key = violations.keys.min_by { |offender| offsets.fetch(offender) }
+          raise ParseError.new("#{key}: #{value_rule} (got #{shown(violations.fetch(key))})", offsets.fetch(key))
         end
 
         # What a semantic error shows of the offending member: the bare
@@ -299,8 +217,13 @@ module Fast
         @members.empty?
       end
 
-      # Yields each held algorithm key and its bare value.
+      # Yields each held algorithm key and its bare value. Without a
+      # block, answers an Enumerator over the same pairs — the
+      # family's iteration convention; the allocation lands only on
+      # that cold path.
       def each
+        return to_enum(:each) unless block_given?
+
         @members.each { |key, item| yield key, item.value }
       end
 
@@ -372,11 +295,11 @@ module Fast
         return false unless key.is_a?(String)
 
         size = key.bytesize
-        return false if size.zero? || !Scan::KEY_FIRST[key.getbyte(0)]
+        return false if size.zero? || !KEY_FIRST[key.getbyte(0)]
 
         index = 1
         while index < size
-          return false unless Scan::KEY_BODY[key.getbyte(index)]
+          return false unless KEY_BODY[key.getbyte(index)]
 
           index += 1
         end

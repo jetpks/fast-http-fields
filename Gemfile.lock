@@ -7,8 +7,8 @@ PATH
 PATH
   remote: gems/digest
   specs:
-    fast-digest (0.1.0)
-      fast-sfv
+    fast-digest (0.1.1)
+      fast-sfv (~> 0.2)
 
 PATH
   remote: gems/priority
@@ -113,7 +113,7 @@ CHECKSUMS
   console (1.38.0) sha256=35b82f59130e95e9be6b832d9e539c8b3988fc192e4a8e9a86ab4922f44ad5de
   covered (0.30.0) sha256=93b1bf881812dd4f52e1c3330bf7fe0dcb6bc9bb72a200cbe5d282e902e947c5
   fast-client-cert (0.1.0)
-  fast-digest (0.1.0)
+  fast-digest (0.1.1)
   fast-priority (0.1.1)
   fast-proxy-status (0.1.0)
   fast-sfv (0.2.0)

@@ -110,7 +110,7 @@ Read §6.4 and §6.3 before trusting a trailer — intermediaries are allowed to
 
 ## Documentation
 
-Current release 0.1.0; changelog at [CHANGELOG.md](CHANGELOG.md).
+Current release 0.1.1; changelog at [CHANGELOG.md](CHANGELOG.md).
 
 ### Tutorial
 

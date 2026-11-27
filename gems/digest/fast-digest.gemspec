@@ -46,7 +46,8 @@ Gem::Specification.new do |spec|
   spec.metadata["rubygems_mfa_required"] = "true"
 
   # Exactly one runtime dependency, unconstrained: fast-sfv is the
-  # family substrate this gem parses and emits through — the stdlib
-  # digest library needs no dependency line, being a default gem.
-  spec.add_dependency "fast-sfv"
+  # family substrate this gem parses and emits through (0.2 or later
+  # within the 0.x series) — the stdlib digest library needs no
+  # dependency line, being a default gem.
+  spec.add_dependency "fast-sfv", "~> 0.2"
 end

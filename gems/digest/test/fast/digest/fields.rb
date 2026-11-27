@@ -247,6 +247,26 @@ describe Fast::Digest do
       expect(strict_error_of(Fast::Digest::WantReprDigest, "sha-256=3, sha-256=11").offset).to be(:==, 19)
     end
 
+    it "positions after a display string whose content ends in a backslash" do
+      # RFC 9651 §4.2.10: a display string's backslash is literal
+      # content and only DQUOTE closes, so foo=%"\" is a legal member
+      # the positioning must cross intact — the first offender is
+      # named and positioned, not the effective rebound key.
+      error = strict_error_of(Fast::Digest::WantReprDigest, %(sha-256=3, foo=%"\", sha-256=11))
+      expect(error.offset).to be(:==, 15)
+      expect(error.message).to be(:include?, "foo")
+      control = strict_error_of(Fast::Digest::WantReprDigest, %(foo=%"a", sha-256=11))
+      expect(control.offset).to be(:==, 4)
+    end
+
+    it "positions after a parameter on the valueless member" do
+      # §4.2.2 step 3 parses parameters on the implicit Boolean true,
+      # so a;q=1 is a legal member the positioning must cross intact —
+      # the later b=11 is the first offender, at its own value.
+      expect(strict_error_of(Fast::Digest::WantReprDigest, "a;q=1, b=11, a=3").offset).to be(:==, 9)
+      expect(strict_error_of(Fast::Digest::WantReprDigest, "a, md5=11, a=3").offset).to be(:==, 7)
+    end
+
     it "returns the strict view of a valid field, parameters preserved" do
       b1 = "sha-256=:RK/0qy18MlBSVnWgjwz6lZEWjP/lF5HF9bvEF8FabDg=:;q=1"
       field = Fast::Digest::ReprDigest.parse!(b1)
@@ -338,6 +358,14 @@ describe Fast::Digest do
       expect(pairs).to be(:==, [["sha-512", 3], ["sha-256", 10]])
       expect(want.members["sha-512"]).to be(:kind_of?, Fast::SFV::Item)
       expect(Fast::Digest::ReprDigest.new({}).empty?).to be(:==, true)
+    end
+
+    it "answers an Enumerator from #each without a block" do
+      want = Fast::Digest::WantReprDigest.parse("sha-512=3, sha-256=10")
+      enumerator = want.each
+      expect(enumerator).to be(:kind_of?, ::Enumerator)
+      expect(enumerator.to_a).to be(:==, [["sha-512", 3], ["sha-256", 10]])
+      expect(enumerator.each.next).to be(:==, ["sha-512", 3])
     end
 
     it "compares by canonical wire form within the field class" do
