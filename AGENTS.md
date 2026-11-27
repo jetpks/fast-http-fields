@@ -61,6 +61,32 @@ Within them, write idiomatic Ruby:
 - Constants read across classes get local aliases
   (`PERIOD = Parser::PERIOD`), not mid-code `Parser::X` references.
 
+### Boundary checks
+
+A check at a construction or emit boundary never sends a message
+into the caller's value: the value is exactly the thing not yet
+trusted. `value.is_a?`, `value.nil?`, `value == literal`,
+`value.inspect` and `value.class` all call a method on it — a
+classless value (a `BasicObject` descendant) answers each with a raw
+`NoMethodError`, and a hostile override can lie to or escape any of
+them, so the failure leaves the documented error class
+(`SerializeError`, or `TypeError` where a doc names it) instead of
+the raw crash the family's errors.rb files promise never happens.
+
+- Use the forms that cannot dispatch: `case value when Klass`
+  (`Module#===`), `case value when nil`, `case value when true,
+  false`, and — for error-message text —
+  `defined?(value.class) ? value.class : "a classless object"`:
+  the class, never the value's own `inspect`.
+- A method may be sent into the value only after one of those forms
+  has established its type (`value.encoding`, `value.empty?` after
+  `case value when String`).
+- Values the code itself produced — a parse result, a wrapped
+  member, a validated keyword — keep the ordinary idioms; the rule
+  guards the boundary, not the interior. A predicate the boundary
+delegates to (`param_ok?`, `value_ok?`, `byte_sequence?`) is part
+  of the boundary: it takes the never-dispatch forms too.
+
 Measured traps — idiomatic forms that allocate, rejected here:
 
 - `each_with_index`: two objects per Array call, a pair Array per Hash

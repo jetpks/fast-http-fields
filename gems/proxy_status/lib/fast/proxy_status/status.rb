@@ -62,10 +62,14 @@ module Fast
       # field, an existing value's hops (no re-parse), a String or
       # Array of lines parsed leniently. TypeError for anything else.
       def held_hops(input)
-        return nil if input.nil?
-        return input.hops if input.is_a?(ProxyStatus)
-
-        parse(input).hops
+        case input
+        when nil
+          nil
+        when ProxyStatus
+          input.hops
+        else
+          parse(input).hops
+        end
       end
 
       # §2 step 1's walk: for each trailer member in order, the

@@ -144,8 +144,11 @@ module Fast
       # Anything else raises SerializeError before anything is
       # emitted.
       def initialize(ders)
-        unless ders.is_a?(Array)
-          raise SerializeError.new("Client-Cert-Chain members are an Array (got #{ders.class})", 0)
+        case ders
+        when Array
+          nil
+        else
+          raise SerializeError.new("Client-Cert-Chain members are an Array (got #{shape(ders)})", 0)
         end
 
         items = []
@@ -202,9 +205,13 @@ module Fast
       # a caller bug — ArgumentError, never a field error. The empty
       # chain answers no lines.
       def split(per_line)
-        unless per_line.is_a?(Integer) && per_line.positive?
-          raise ArgumentError, "per_line is a positive Integer (got #{per_line.inspect})"
-        end
+        valid = case per_line
+                when Integer
+                  per_line.positive?
+                else
+                  false
+                end
+        raise ArgumentError, "per_line is a positive Integer (got #{shape(per_line)})" unless valid
 
         lines = []
         index = 0
@@ -235,6 +242,13 @@ module Fast
       end
 
       private
+
+      # The class of a value an error message names, or a placeholder
+      # when the value has none (a BasicObject descendant) — the
+      # message never calls a method on the value it is rejecting.
+      def shape(value)
+        defined?(value.class) ? value.class : "a classless object"
+      end
 
       # The one place the held state is written, then frozen: the
       # members as parsed (or as built), and the DERs view derived

@@ -158,15 +158,21 @@ module Fast
       def emit_inner_list(output, inner_list)
         output << "("
         items = inner_list.items
-        fail_serialize(output, "an inner list's items must be an Array (got #{shape(items)})") unless items.is_a?(Array)
-
-        first = true
-        items.each do |item|
-          output << " " unless first
-          first = false
-          fail_serialize(output, "an inner list member must be an Item (got #{shape(item)})") unless item.is_a?(Item)
-
-          emit_item(output, item)
+        case items
+        when Array
+          first = true
+          items.each do |item|
+            output << " " unless first
+            first = false
+            case item
+            when Item
+              emit_item(output, item)
+            else
+              fail_serialize(output, "an inner list member must be an Item (got #{shape(item)})")
+            end
+          end
+        else
+          fail_serialize(output, "an inner list's items must be an Array (got #{shape(items)})")
         end
         output << ")"
         emit_parameters(output, inner_list.params)
@@ -176,15 +182,18 @@ module Fast
       # unless the value is Boolean true — the ";key" short form. The
       # Hash's iteration order is the wire order.
       def emit_parameters(output, params)
-        fail_serialize(output, "parameters must be a Hash (got #{shape(params)})") unless params.is_a?(Hash)
-
-        params.each do |key, value|
-          output << ";"
-          emit_key(output, key)
-          unless value.equal?(true)
-            output << "="
-            emit_bare_item(output, value)
+        case params
+        when Hash
+          params.each do |key, value|
+            output << ";"
+            emit_key(output, key)
+            unless value.equal?(true)
+              output << "="
+              emit_bare_item(output, value)
+            end
           end
+        else
+          fail_serialize(output, "parameters must be a Hash (got #{shape(params)})")
         end
       end
 
@@ -192,8 +201,16 @@ module Fast
       # continuation KEY_BODY — the class the parse path reads; then the
       # key's bytes are appended whole.
       def emit_key(output, key)
-        fail_serialize(output, "a key must be a String (got #{shape(key)})") unless key.is_a?(String)
+        case key
+        when String
+          emit_key_bytes(output, key)
+        else
+          fail_serialize(output, "a key must be a String (got #{shape(key)})")
+        end
+      end
 
+      # The key's own byte walk — the String the case above handed in.
+      def emit_key_bytes(output, key)
         size = key.bytesize
         fail_serialize(output, "a key must not be empty") if size.zero?
         fail_serialize(output, "a key must start with a lowercase letter or '*'") unless KEY_FIRST[key.getbyte(0)]
@@ -449,9 +466,12 @@ module Fast
       def emit_date(output, value)
         output << "@"
         number = value.value
-        fail_serialize(output, "a date's value must be an Integer (got #{shape(number)})") unless number.is_a?(Integer)
-
-        emit_integer(output, number)
+        case number
+        when Integer
+          emit_integer(output, number)
+        else
+          fail_serialize(output, "a date's value must be an Integer (got #{shape(number)})")
+        end
       end
 
       # §4.1.11 Serializing a Display String: #value UTF-8-encoded (a
@@ -484,19 +504,21 @@ module Fast
       # arrives in another encoding, failed loudly when it cannot be.
       def display_text(output, value)
         text = value.value
-        unless text.is_a?(String)
+        case text
+        when String
+          if text.encoding != Encoding::UTF_8
+            begin
+              text = text.encode(Encoding::UTF_8)
+            rescue Encoding::UndefinedConversionError, Encoding::InvalidByteSequenceError, Encoding::ConverterNotFoundError
+              fail_serialize(output, "a display string must be Unicode text")
+            end
+          end
+          fail_serialize(output, "a display string must be Unicode text") unless text.valid_encoding?
+
+          text
+        else
           fail_serialize(output, "a display string's value must be a String (got #{shape(text)})")
         end
-        if text.encoding != Encoding::UTF_8
-          begin
-            text = text.encode(Encoding::UTF_8)
-          rescue Encoding::UndefinedConversionError, Encoding::InvalidByteSequenceError, Encoding::ConverterNotFoundError
-            fail_serialize(output, "a display string must be Unicode text")
-          end
-        end
-        fail_serialize(output, "a display string must be Unicode text") unless text.valid_encoding?
-
-        text
       end
 
       # The number of base-10 digits of +magnitude+ (1 at zero): the
@@ -543,9 +565,12 @@ module Fast
     # token (a Symbol is wrong-typed input and raises), an ASCII-8BIT
     # String a byte sequence.
     def serialize_item(item)
-      Serializer.fail_shape("an Item", item) unless item.is_a?(Item)
-
-      Serializer.item_string(item)
+      case item
+      when Item
+        Serializer.item_string(item)
+      else
+        Serializer.fail_shape("an Item", item)
+      end
     end
 
     # Serializes an RFC 9651 List (§4.1, field_type "list") — the
@@ -557,10 +582,12 @@ module Fast
     # SerializeError; an Item is never empty, so only the containers
     # answer nil.
     def serialize_list(list)
-      Serializer.fail_shape("an Array of Items and InnerLists", list) unless list.is_a?(Array)
-      return nil if list.empty?
-
-      Serializer.list_string(list)
+      case list
+      when Array
+        list.empty? ? nil : Serializer.list_string(list)
+      else
+        Serializer.fail_shape("an Array of Items and InnerLists", list)
+      end
     end
 
     # Serializes an RFC 9651 Dictionary (§4.1, field_type "dictionary") —
@@ -572,10 +599,12 @@ module Fast
     # Strict: a non-Hash input, a Symbol key or an unwrapped value
     # raises SerializeError.
     def serialize_dict(dict)
-      Serializer.fail_shape("a Hash of String keys to Items and InnerLists", dict) unless dict.is_a?(Hash)
-      return nil if dict.empty?
-
-      Serializer.dictionary_string(dict)
+      case dict
+      when Hash
+        dict.empty? ? nil : Serializer.dictionary_string(dict)
+      else
+        Serializer.fail_shape("a Hash of String keys to Items and InnerLists", dict)
+      end
     end
   end
 end

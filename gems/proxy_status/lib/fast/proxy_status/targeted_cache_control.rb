@@ -329,9 +329,9 @@ module Fast
       # flag, the strict raise and the emit refusal cannot drift.
       def value_ok?(key, value)
         case key
-        when "max-age" then value.is_a?(Integer)
-        when "must-revalidate", "no-store" then value == true
-        when "no-cache", "private" then value == true || plain_string?(value)
+        when "max-age" then integer_value?(value)
+        when "must-revalidate", "no-store" then true_value?(value)
+        when "no-cache", "private" then true_value?(value) || plain_string?(value)
         else inferred?(value)
         end
       end
@@ -342,15 +342,47 @@ module Fast
       # or an inner list is outside the mapping.
       def inferred?(value)
         case value
-        when true, false, Integer, Float, Token then true
-        else value.is_a?(String) && value.encoding != BINARY
+        when true, false, Integer, Float, Token
+          true
+        when String
+          value.encoding != BINARY
+        else
+          false
         end
       end
 
       # §2.1's quoted-string mapping: a plain String — not a Token (a
       # different wire type) and not a Byte Sequence.
       def plain_string?(value)
-        value.is_a?(String) && !value.is_a?(Token) && value.encoding != BINARY
+        case value
+        when Token
+          false
+        when String
+          value.encoding != BINARY
+        else
+          false
+        end
+      end
+
+      # An Integer, as a never-dispatch predicate.
+      def integer_value?(value)
+        case value
+        when Integer
+          true
+        else
+          false
+        end
+      end
+
+      # Boolean true exactly — the never-dispatch form of the
+      # value == true check: these directives carry true, never false.
+      def true_value?(value)
+        case value
+        when true
+          true
+        else
+          false
+        end
       end
 
       # The rule one directive's value must satisfy, worded for the
@@ -488,7 +520,12 @@ module Fast
     # value, then the one place the held state is written, frozen: the
     # members Hash, the keys view derived from it, the clean flag.
     def check_members!(members)
-      raise SerializeError.new("members are a Hash (got #{members.class})", 0) unless members.is_a?(Hash)
+      case members
+      when Hash
+        nil
+      else
+        raise SerializeError.new("members are a Hash (got #{shape(members)})", 0)
+      end
 
       held = {}
       members.each do |key, value|
@@ -506,24 +543,34 @@ module Fast
     def check_key!(key)
       return if valid_key?(key)
 
-      raise SerializeError.new("#{key.inspect} is not a Structured Fields key", 0)
+      raise SerializeError.new("#{shape(key)} is not a Structured Fields key", 0)
     end
 
     # The walk behind check_key! — manual and allocation-free, the
     # shape the substrate's own key parse uses.
     def valid_key?(key)
-      return false unless key.is_a?(String)
+      case key
+      when String
+        size = key.bytesize
+        return false if size.zero? || !KEY_FIRST[key.getbyte(0)]
 
-      size = key.bytesize
-      return false if size.zero? || !KEY_FIRST[key.getbyte(0)]
+        index = 1
+        while index < size
+          return false unless KEY_BODY[key.getbyte(index)]
 
-      index = 1
-      while index < size
-        return false unless KEY_BODY[key.getbyte(index)]
-
-        index += 1
+          index += 1
+        end
+        true
+      else
+        false
       end
-      true
+    end
+
+    # The class of a value an error message names, or a placeholder
+    # when the value has none (a BasicObject descendant) — the
+    # message never calls a method on the value it is rejecting.
+    def shape(value)
+      defined?(value.class) ? value.class : "a classless object"
     end
 
     # One directive's value at the boundary: the constraint the parse
@@ -533,7 +580,7 @@ module Fast
     def check_value!(key, value)
       return if self.class.send(:value_ok?, key, value)
 
-      raise SerializeError.new("#{key}: the value is #{rule_for(key)} (got #{value.inspect})", 0)
+      raise SerializeError.new("#{key}: the value is #{rule_for(key)} (got #{shape(value)})", 0)
     end
 
     # The rule one directive's value must satisfy, worded for the
