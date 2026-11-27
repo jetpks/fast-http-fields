@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.1.2 (2026-11-27)
+
+- Fixed: the construction and emit boundaries never send a message
+  into the value they are checking — `Parameters.new`'s keyword guards
+  (urgency, incremental, the unknown-members Hash and each member's
+  key and value) and the H2/H3 emit checks (the Parameters itself, the
+  prioritized stream ID, the prioritized element ID) read the value
+  with the never-dispatch forms (`case value when Klass`, `Module#===`),
+  so a classless value (a `BasicObject` descendant) at a boundary
+  raises the documented `SerializeError` instead of escaping the
+  error contract as a raw `NoMethodError`. The message names the
+  value's class — or the placeholder "a classless object" — never a
+  method the value itself answers.
+- Fixed: requirement messages lead with the requirement — "urgency
+  must be an Integer 0..7, received …", "incremental must be a
+  Boolean, received …", on both the parse side (§4's semantic checks)
+  and the emit side — so no message reads as if the received value
+  were the required one.
+
 ## 0.1.1 (2026-11-27)
 
 - Fixed: the strict `parse!` positions §4 semantic errors through the

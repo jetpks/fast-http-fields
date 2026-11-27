@@ -15,7 +15,7 @@ source "https://rubygems.org"
 #     BUNDLE_GEMFILE=gems.rb bundle exec sus \
 #     test/fast/priority/interop.rb
 #
-# The pinned fast-sfv is the published 0.1.1 artifact — the same thing
+# The pinned fast-sfv is the published 0.2.1 artifact — the same thing
 # script/verify-packaged.rb proves — and not a path entry into the
 # sibling checkout (a path form would expand the checkout into the
 # cache as an unpacked tree, a stale-copy hazard).
@@ -24,7 +24,7 @@ gemspec
 
 group :test do
   gem "sus", "0.38.0"
-  gem "fast-sfv", "0.1.1"
+  gem "fast-sfv", "0.2.1"
   # protocol-http2 (https://github.com/socketry/protocol-http2, MIT)
   # — the reference HTTP/2 framing stack the interop suite exercises
   # in both directions. Never a runtime dependency.
