@@ -4,7 +4,7 @@ The complete public surface. No prose essays — see the [explanation](../explan
 
 ## The module
 
-`Fast::SFV`, required as `require "fast/sfv"`; `Fast::SFV::VERSION` is `"0.1.1"`.
+`Fast::SFV`, required as `require "fast/sfv"`; `Fast::SFV::VERSION` is `"0.2.1"`.
 
 Ruby >= 3.4, RubyGems >= 3.5.3, zero runtime dependencies.
 

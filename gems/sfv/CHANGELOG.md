@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.2.1 (2026-11-27)
+
+- Fixed: the emit boundary never sends a message into the value it is
+  checking — the boundary guards (`serialize_item`, `serialize_list`
+  and `serialize_dict`, and the inner-list, parameter, key, date and
+  display-string walks beneath them) read the value with the
+  never-dispatch forms (`case value when Klass`, `Module#===`), so a
+  classless value (a `BasicObject` descendant) at a boundary raises
+  the documented `SerializeError` instead of escaping the error
+  contract as a raw `NoMethodError` — the promise the errors module
+  carries. A method is sent into the value only after its type is
+  established; the message names the value's class, never a method
+  the value itself answers.
+- Fixed: `regions_item`/`regions_list`/`regions_dict`'s shape
+  `ArgumentError` leads with the requirement — "the shape must be
+  :item, :list or :dictionary, received …" — the wording rule every
+  requirement message in the family now follows.
+- Test: negative zero serializes unsigned — `-0.0` emits `"0.0"`
+  (§4.1.5 step 5: only a value less than zero carries a sign), now
+  pinned by a round-trip assertion.
+- Docs: the API reference's `VERSION` pin matches the released
+  version again (it had stayed at `0.1.1` through 0.2.0).
+
 ## 0.2.0 (2026-11-26)
 
 - Fixed: non-ASCII-compatible field input no longer escapes the error
