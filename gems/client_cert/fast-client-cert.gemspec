@@ -45,13 +45,13 @@ Gem::Specification.new do |spec|
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = spec.homepage
   spec.metadata["changelog_uri"] = "#{spec.homepage}/blob/main/gems/client_cert/CHANGELOG.md"
-  # The diátaxis tree the docs iteration lands; pointed at ahead of it, the
-  # family precedent for a gem whose docs land with its release.
+  # The diátaxis documentation tree this gem ships under docs/.
   spec.metadata["documentation_uri"] = "https://github.com/jetpks/fast-http-fields/tree/main/gems/client_cert/docs"
   spec.metadata["rubygems_mfa_required"] = "true"
 
-  # Exactly one runtime dependency, unconstrained: fast-sfv is the
-  # family substrate this gem parses and emits through — the string
-  # surgery needs nothing else, being pure Ruby.
-  spec.add_dependency "fast-sfv"
+  # Exactly one runtime dependency: fast-sfv, 0.2 or later within the
+  # 0.x series — the Structured Field Values substrate this gem parses
+  # and emits through; the string surgery needs nothing else, being
+  # pure Ruby.
+  spec.add_dependency "fast-sfv", "~> 0.2"
 end

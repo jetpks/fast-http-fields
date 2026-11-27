@@ -128,7 +128,7 @@ The trust split: the PEM side trusts the armor and never validates base64 — a 
 
 ## Documentation
 
-Current release 0.1.0; changelog at [CHANGELOG.md](CHANGELOG.md).
+Current release 0.1.1; changelog at [CHANGELOG.md](CHANGELOG.md).
 
 ### Tutorial
 

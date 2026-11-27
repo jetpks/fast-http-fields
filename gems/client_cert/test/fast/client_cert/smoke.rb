@@ -8,6 +8,6 @@ require "fast/client_cert"
 describe Fast::ClientCert do
   it "loads the scaffold and carries its version" do
     expect(Fast::ClientCert).to be(:kind_of?, Module)
-    expect(Fast::ClientCert::VERSION).to be(:==, "0.1.0")
+    expect(Fast::ClientCert::VERSION).to be(:==, "0.1.1")
   end
 end

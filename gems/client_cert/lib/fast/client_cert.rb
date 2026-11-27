@@ -69,9 +69,14 @@ module Fast
     module Checks
       module_function
 
-      # Is +value+ the Byte Sequence shape §2.1/§2.3 demand?
+      # Is +value+ the Byte Sequence shape §2.1/§2.3 demand? A
+      # DER-encoded X.509 certificate is never zero bytes (§2.1: "the
+      # binary data is a DER-encoded X.509 certificate"), so the empty
+      # byte sequence "::" is refused here — the one seam every
+      # boundary reads: both strict parses, both constructions, and
+      # both fail-closed falls.
       def byte_sequence?(value)
-        value.is_a?(String) && !value.is_a?(SFV::Token) && value.encoding == BINARY
+        value.is_a?(String) && !value.is_a?(SFV::Token) && value.encoding == BINARY && !value.empty?
       end
 
       # What a constraint error shows of the offender: the value's

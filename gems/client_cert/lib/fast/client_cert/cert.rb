@@ -73,20 +73,16 @@ module Fast
 
         private
 
-        # The byte the value starts at in the combined field value:
-        # the leading OWS skipped — where the constraint's ParseError
-        # points. The RFC 9651 §4.2 item parse discards exactly these
-        # bytes before the value.
+        # The byte the value starts at in the combined field value —
+        # where the constraint's ParseError points. Read from the
+        # substrate's region scan, consulted only on this error path:
+        # the RFC 9651 §4.2 item parse discards the leading SP before
+        # the value (a leading HTAB fails the parse before this walk
+        # runs, so the value never begins with one), and the region
+        # scan applies the same rule, so the offset and the parse
+        # cannot disagree.
         def value_offset(input)
-          field = input.is_a?(Array) ? input.join(", ") : input
-          index = 0
-          while index < field.bytesize
-            case field.getbyte(index)
-            when 0x20, 0x09 then index += 1
-            else break
-            end
-          end
-          index
+          SFV.regions_item(input).members[0].value_start
         end
 
         # The value object behind an Item that already passed the

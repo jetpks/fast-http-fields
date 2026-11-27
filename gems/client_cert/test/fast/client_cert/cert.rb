@@ -58,6 +58,11 @@ describe Fast::ClientCert::Cert do
       end
     end
 
+    it "answers nil for the empty Byte Sequence (2.1: DER is never zero bytes)" do
+      expect(Fast::ClientCert::Cert.parse("::")).to be(:==, nil)
+      expect(Fast::ClientCert::Cert.valid?("::")).to be(:==, false)
+    end
+
     it "discards the OWS around the value (9651 4.2)" do
       cert = Fast::ClientCert::Cert.parse(" :aGVsbG8=:  ")
       expect(cert.der).to be(:==, "hello")
@@ -88,6 +93,13 @@ describe Fast::ClientCert::Cert do
       expect(strict_error_of("5").offset).to be(:==, 0)
       expect(strict_error_of(" 5").offset).to be(:==, 1)
       expect(strict_error_of("\"str\"").offset).to be(:==, 0)
+    end
+
+    it "raises the Byte Sequence constraint for the empty Byte Sequence" do
+      error = strict_error_of("::")
+      expect(error).to be(:kind_of?, Fast::ClientCert::ParseError)
+      expect(error.offset).to be(:==, 0)
+      expect(error.message).to be(:==, %(Client-Cert: the value is a Byte Sequence (got "")))
     end
 
     it "names the type 2.1 states" do
@@ -127,6 +139,11 @@ describe Fast::ClientCert::Cert do
       expect(cert.to_s).to be(:==, ":aGVsbG8=:")
       expect(cert.der).to be(:==, "hello")
       expect(cert.der.encoding.name).to be(:==, "ASCII-8BIT")
+    end
+
+    it "refuses the empty Byte Sequence at construction (2.1: DER is never zero bytes)" do
+      error = construction_error_of("".b)
+      expect(error).to be(:kind_of?, Fast::ClientCert::SerializeError)
     end
 
     it "refuses a value that would not emit as a Byte Sequence" do

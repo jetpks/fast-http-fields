@@ -61,6 +61,15 @@ describe Fast::ClientCert::Chain do
       end
     end
 
+    it "ignores the whole field on the empty Byte Sequence (2.1: DER is never zero bytes)" do
+      expect(Fast::ClientCert::Chain.parse("::").ders).to be(:==, [])
+      expect(Fast::ClientCert::Chain.parse("::").empty?).to be(:==, true)
+      expect(Fast::ClientCert::Chain.valid?("::")).to be(:==, false)
+      error = strict_error_of("::")
+      expect(error.offset).to be(:==, 0)
+      expect(error.message).to be(:==, %(a Client-Cert-Chain member is a Byte Sequence (got "")))
+    end
+
     it "ignores the whole field on any non-Byte-Sequence member (2.3)" do
       [":aGVsbG8=:, 5", "5, :aGVsbG8=:", ":aGVsbG8=:, \"str\"", ":aGVsbG8=:, token", "(:aGVsbG8=:)",
        ":aGVsbG8=:, (:d29ybGQ=:)"].each do |input|
@@ -105,6 +114,15 @@ describe Fast::ClientCert::Chain do
         "(:aGVsbG8=:)" => 0, ":aGVsbG8=:;k=\"a,b\", 5" => 20, ":aGVsbG8=:, 5, 6" => 12 }.each do |input, offset|
         expect(strict_error_of(input).offset).to be(:==, offset)
       end
+    end
+
+    it "raises after a display-string parameter ending in a backslash" do
+      # RFC 9651 §4.2.10: a display string's backslash is literal
+      # content and only DQUOTE closes, so a=%"\" is a legal parameter
+      # value the positioning must cross intact — the later member is
+      # raised at its own identifier, never past the field's end.
+      expect(strict_error_of(%(:AAAA:;a=%"\\", 5)).offset).to be(:==, 15)
+      expect(strict_error_of(%(:AAAA:;a=%"a", 5)).offset).to be(:==, 15)
     end
 
     it "combines the Array input before positioning (9651 4.2)" do

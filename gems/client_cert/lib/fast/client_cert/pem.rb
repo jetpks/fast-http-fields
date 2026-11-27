@@ -93,16 +93,27 @@ module Fast
     end
 
     # The Client-Cert-Chain field value → the Array of RFC 7468 blocks
-    # it carries, in order: the members split on the separator commas
-    # (base64 cannot carry one — the alphabet has no comma), each
-    # stripped of the OWS around it and converted exactly as
-    # field_to_pem demands. The empty value answers no blocks.
-    # TypeError for a non-String.
+    # it carries, in order: the members located by the substrate's
+    # region scan, whose boundaries are parameter-aware — a comma
+    # inside a quoted parameter value (§4.2.5) never splits a member —
+    # each member's VALUE converted exactly as field_to_pem demands
+    # (the parameters are metadata the PEM conversion does not carry;
+    # the value alone holds the DER bytes, and a member that is not a
+    # whole :base64: item names that member's own value in its error).
+    # A field value that is not a Structured Fields List raises the
+    # base Error carrying the region scan's own message. The empty
+    # value answers no blocks. TypeError for a non-String.
     def field_to_pems(field)
       raise TypeError, "a field value is a String (got #{field.class})" unless field.is_a?(String)
       return [].freeze if field.empty?
 
-      field.split(",", -1).map { |member| field_to_pem(member.strip) }
+      regions = SFV.regions_list(field)
+      regions.members.map do |member|
+        value = regions.combined.byteslice(member.value_start, member.value_end - member.value_start)
+        field_to_pem(value)
+      end
+    rescue SFV::ParseError => e
+      raise Error, e.message
     end
 
     # A line that carries nothing but whitespace: the blank lines a

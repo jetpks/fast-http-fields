@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.1.1 (2026-11-27)
+
+- Fixed: the strict `parse!` positions member errors through the
+  substrate's region scan (`Fast::SFV.regions_list`, fast-sfv 0.2.0)
+  instead of this gem's private walk — the private walk desynced on a
+  legal RFC 9651 shape (a display string whose content ends in a
+  backslash — §4.2.10 has no backslash escaping, backslash is literal
+  content and only DQUOTE closes) carried as a chain member's
+  parameter, so a later member's error pointed past the field's end.
+  Every pinned offset is unchanged; the private walk class and the
+  local field-line join are gone (the substrate's validated combine
+  is the only one).
+- Fixed: the empty Byte Sequence `::` is refused at the shared
+  Checks seam — a DER-encoded X.509 certificate is never zero bytes
+  (§2.1), so `Cert.parse` answers nil (the field treated as absent,
+  the unauthenticated connection), `Chain.parse` answers the shared
+  empty value, `valid?` answers false, the strict parses raise
+  positioned at the member, and both constructions raise
+  SerializeError — one seam, every boundary.
+- Fixed: `field_to_pems` splits on the substrate's parameter-aware
+  member boundaries instead of every comma — a comma inside a quoted
+  parameter value is content, never a separator, so a param-carrying
+  member converts whole to its PEM block and an error names a real
+  member's value, never a split artifact. A field value that is not
+  a Structured Fields List raises the base Error carrying the scan's
+  message.
+- Hygiene: the gemspec comment rewritten self-contained; the
+  fast-sfv dependency floored at `~> 0.2` (the region-scan API this
+  release reads).
+
 ## 0.1.0 (2026-11-26)
 
 - Fields: `Fast::ClientCert::Cert` and `Fast::ClientCert::Chain` — the
