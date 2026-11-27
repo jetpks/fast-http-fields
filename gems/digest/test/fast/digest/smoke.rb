@@ -8,6 +8,6 @@ require "fast/digest"
 describe Fast::Digest do
   it "loads the scaffold and carries its version" do
     expect(Fast::Digest).to be(:kind_of?, Module)
-    expect(Fast::Digest::VERSION).to be(:==, "0.1.1")
+    expect(Fast::Digest::VERSION).to be(:==, "0.1.2")
   end
 end

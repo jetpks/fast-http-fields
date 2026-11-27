@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.2 (2026-11-27)
+
+- Fixed: the construction and parse boundaries never send a message
+  into the value they are checking — a field's members Hash, each
+  member's key (the Algorithm Key grammar) and value, and the strict
+  `parse!`'s first-offender report read the value with the
+  never-dispatch forms (`case value when Klass`, `Module#===`), so a
+  classless value (a `BasicObject` descendant) at a boundary raises
+  the documented `SerializeError` — or the parse-side `ParseError` —
+  instead of escaping the error contract as a raw `NoMethodError`.
+  The message names the value's class — or the placeholder "a
+  classless object" — never the value's own `inspect` or another
+  method it answers.
+- Fixed: requirement messages lead with the requirement — "members
+  must be a Hash, received …", "<key>: <rule>, received …" — so no
+  message reads as if the received value were the required one.
+
 ## 0.1.1 (2026-11-27)
 
 - Fixed: the strict `parse!` positions member errors through the
