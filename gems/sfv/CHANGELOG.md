@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.2.0 (2026-11-26)
+
+- Fixed: non-ASCII-compatible field input no longer escapes the error
+  contracts as `NoMethodError` or `Encoding::CompatibilityError`. A
+  UTF-16/UTF-32 String, and an Array line whose encoding cannot join
+  with the others, are rejected as a positioned
+  `Fast::SFV::ParseError` — never transcoded: the family rejects
+  rather than converts, and a real h1/h2/h3 stack never hands you
+  UTF-16. An ASCII-compatible line that merely carries a high byte
+  keeps its byte-exact behavior (the ASCII failure at its exact
+  byte), and the plain all-ASCII join allocates nothing.
+- Added: the region scan — `Fast::SFV.regions_item`,
+  `Fast::SFV.regions_list` and `Fast::SFV.regions_dict`, answering a
+  frozen `Fast::SFV::Regions`: the combined field value itself plus
+  one frozen `Fast::SFV::Region` per member, carrying the key's and
+  the value's byte offsets and the parameter group that follows (the
+  valueless Boolean-true member's included — RFC 9651 §4.2.2 step 3
+  parses parameters on it). The scan walks the Parser's own §4.2
+  grammar — the same byte classes, the same steps, the same
+  strictness — so a caller can slice member values and position its
+  own diagnostics without re-walking the grammar; the field gems'
+  strict walks adopt it in their next releases. Strictly additive:
+  no existing entry point changed.
+- Fixed: the substrate's tests now pin exact error offsets — the
+  display-string-backslash and valueless-member-with-parameters
+  trigger shapes (`foo=%"\"`, `a;q=1, b=11, a=3`) and the strict-walk
+  repro set, as the region scan's span pins, plus the parse/scan
+  message-and-offset agreement on malformed content. The README's
+  `offset # => 4` example executes as a spec again (the docs-example
+  spec was lost in 0.1.1's docs regeneration without a changelog
+  note) — `test/fast/sfv/docs.rb` is back, executing the README and
+  how-to-guide examples as printed.
+- Docs: the parse how-to states the field-line encoding policy
+  (rejected, never transcoded) with its example executed by the
+  docs-example spec.
+
 ## 0.1.1 (2026-11-25)
 
 - Docs: re-authored from scratch — the README front door and the

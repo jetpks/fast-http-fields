@@ -22,6 +22,19 @@ A String input is one field value, used as given; an Array input is the field's 
 
 Each Array member must be a String (a String subclass included); anything else raises `TypeError` with message `an Array of String field lines is required (got <Class>)`.
 
+Each Array line must also be an ASCII-compatible encoding. A line whose encoding cannot combine with the others — UTF-16 and UTF-32 are the usual cases — is rejected, never transcoded: `Fast::SFV::ParseError` at the line's start in the combined value.
+
+```ruby
+require "fast/sfv"
+
+begin
+  Fast::SFV.parse_list(["a=1", "b=2".encode("UTF-16LE")])
+rescue Fast::SFV::ParseError => e
+  e.message  # => "a field line must be an ASCII-compatible encoding (got UTF-16LE) at offset 5"
+  e.offset   # => 5
+end
+```
+
 An input that is neither String nor Array raises `TypeError` with message `a String or an Array of String field lines is required (got <Class>)` — a caller bug, not field content.
 
 The whole field value must be ASCII; a byte above 0x7F fails the parse before any grammar runs (RFC 9651 §4.2 step 1).

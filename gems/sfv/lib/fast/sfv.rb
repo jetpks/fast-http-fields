@@ -3,8 +3,10 @@
 require_relative "sfv/version"
 require_relative "sfv/errors"
 require_relative "sfv/types"
+require_relative "sfv/field_value"
 require_relative "sfv/parser"
 require_relative "sfv/serializer"
+require_relative "sfv/regions"
 
 module Fast
   # RFC 9651 Structured Field Values — the syntax substrate of the
@@ -44,6 +46,17 @@ module Fast
   # coercion, so TypeError never appears on the emit path. Item#to_s,
   # InnerList#to_s, Date#to_s and DisplayString#to_s are the same emit,
   # and serialize_item answers exactly item.to_s.
+  #
+  # The region scan answers where each member sits: regions_item,
+  # regions_list and regions_dict walk the same §4.2 grammar and
+  # answer a frozen Fast::SFV::Regions — the combined field value
+  # itself plus one frozen Fast::SFV::Region per member (a dictionary
+  # member's key and value spans, a list member's value span, the
+  # parameters that follow either, the valueless Boolean-true member
+  # included) — so a caller can slice member values and position its
+  # own diagnostics without re-walking the grammar. The scan is
+  # strict exactly as the parse is: the same positioned ParseError on
+  # malformed content, the same TypeError on a wrong input type.
   module SFV
   end
 end
