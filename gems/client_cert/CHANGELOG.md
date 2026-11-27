@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.1.2 (2026-11-27)
+
+- Fixed: the PEM block guard refuses a payload region of blank lines
+  alone — Error, "the PEM block carries no payload", instead of
+  emitting the empty Byte Sequence `::` — a DER-encoded X.509
+  certificate is never zero bytes (§2.1), the same refusal the empty
+  Byte Sequence gets at the shared Checks seam since 0.1.1.
+- Fixed: the parse, construction and emit boundaries never send a
+  message into the value they are checking — the shared Checks seam
+  (`byte_sequence?`, and what a constraint error shows of the
+  offender: its class, or the placeholder "a classless object" —
+  never the value's own `inspect`), both constructions, and
+  `Chain#split`'s per_line guard read the value with the
+  never-dispatch forms (`case value when Klass`, `Module#===`), so a
+  classless value (a `BasicObject` descendant) at a boundary raises
+  the documented error class instead of escaping the error contract
+  as a raw `NoMethodError`.
+- Fixed: requirement messages lead with the requirement — "the value
+  must be a Byte Sequence, received …", "a member must be a Byte
+  Sequence, received …", "per_line must be a positive Integer,
+  received …" — so no message reads as if the received value were
+  the required one.
+
 ## 0.1.1 (2026-11-27)
 
 - Fixed: the strict `parse!` positions member errors through the
