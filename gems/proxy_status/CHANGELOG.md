@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.1.2 (2026-11-27)
+
+- Fixed: the parse, construction and emit boundaries never send a
+  message into the value they are checking — the parameter-value
+  predicates behind every field's `param_ok?` (Boolean, Token,
+  Integer, plain String, identifier, Byte Sequence), the
+  construction boundaries (a field's members Array, each member, its
+  identifier and its params Hash and keys) and the held-value entry
+  read the value with the never-dispatch forms (`case value when
+  Klass`, `Module#===`), so a classless value (a `BasicObject`
+  descendant) at a boundary raises the documented error class
+  instead of escaping the error contract as a raw `NoMethodError`.
+  The message names the value's class — or the placeholder "a
+  classless object" — never a method the value itself answers.
+- Fixed: requirement messages lead with the requirement — "a
+  Proxy-Status member must be a String or Token, received …",
+  "fwd: the value must be a Token of the 2.2 set …", "<key>: the
+  value must be <rule>, received …" — so no message reads as if
+  the received value were the required one.
+
 ## 0.1.1 (2026-11-27)
 
 - Fixed: the strict `parse!` positions member and parameter errors

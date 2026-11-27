@@ -8,6 +8,6 @@ require "fast/proxy_status"
 describe Fast::ProxyStatus do
   it "loads the scaffold and carries its version" do
     expect(Fast::ProxyStatus).to be(:kind_of?, Class)
-    expect(Fast::ProxyStatus::VERSION).to be(:==, "0.1.1")
+    expect(Fast::ProxyStatus::VERSION).to be(:==, "0.1.2")
   end
 end
