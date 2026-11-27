@@ -67,7 +67,7 @@ describe Fast::ClientCert::Chain do
       expect(Fast::ClientCert::Chain.valid?("::")).to be(:==, false)
       error = strict_error_of("::")
       expect(error.offset).to be(:==, 0)
-      expect(error.message).to be(:==, %(a Client-Cert-Chain member is a Byte Sequence (got "")))
+      expect(error.message).to be(:==, %(a Client-Cert-Chain member is a Byte Sequence (got String)))
     end
 
     it "ignores the whole field on any non-Byte-Sequence member (2.3)" do

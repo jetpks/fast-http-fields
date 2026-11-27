@@ -135,16 +135,30 @@ module Fast
       # The emit path never raises TypeError: the wrongness is in the
       # value being sent.
       def check_priority(priority)
-        return if priority.is_a?(Parameters)
-
-        raise SerializeError.new("a Fast::Priority::Parameters is required (got #{priority.class})", 0)
+        case priority
+        when Parameters
+          nil
+        else
+          raise SerializeError.new("a Fast::Priority::Parameters is required (got #{shape(priority)})", 0)
+        end
       end
 
       # §16 Table 4's whole range.
       def check_element_id(element_id)
-        return if element_id.is_a?(Integer) && element_id.between?(0, MAX_ELEMENT_ID)
+        valid = case element_id
+                when Integer then element_id.between?(0, MAX_ELEMENT_ID)
+                else false
+                end
+        return if valid
 
-        raise SerializeError.new("the prioritized element ID is an Integer 0..2^62-1 (got #{element_id.inspect})", 0)
+        raise SerializeError.new("the prioritized element ID is an Integer 0..2^62-1 (got #{shape(element_id)})", 0)
+      end
+
+      # The class of a value an error message names, or a placeholder
+      # when the value has none (a BasicObject descendant) — the
+      # message never calls a method on the value it is rejecting.
+      def shape(value)
+        defined?(value.class) ? value.class : "a classless object"
       end
 
       # The payload is a binary String read bytewise; anything else is
@@ -155,7 +169,7 @@ module Fast
         raise TypeError, "a binary payload String is required (got #{payload.class})"
       end
 
-      private_class_method :check_priority, :check_element_id, :check_payload, :varint, :varint_value
+      private_class_method :check_priority, :check_element_id, :check_payload, :varint, :varint_value, :shape
     end
   end
 end

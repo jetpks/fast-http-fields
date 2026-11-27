@@ -76,16 +76,29 @@ module Fast
       # boundary reads: both strict parses, both constructions, and
       # both fail-closed falls.
       def byte_sequence?(value)
-        value.is_a?(String) && !value.is_a?(SFV::Token) && value.encoding == BINARY && !value.empty?
+        case value
+        when SFV::Token
+          false
+        when String
+          value.encoding == BINARY && !value.empty?
+        else
+          false
+        end
       end
 
       # What a constraint error shows of the offender: the value's
-      # inspect when it is String-shaped, its class otherwise — an
-      # Item unwrapped first (an inner list shows its own class,
-      # Fast::SFV::InnerList).
+      # class — never a method call into the value, which a classless
+      # object (a BasicObject descendant) would refuse — or the
+      # placeholder when it has none. An Item is unwrapped first (an
+      # inner list shows its own class, Fast::SFV::InnerList).
       def shown(shape)
-        value = shape.is_a?(SFV::Item) ? shape.value : shape
-        value.is_a?(String) ? value.inspect : value.class
+        value = case shape
+                when SFV::Item
+                  shape.value
+                else
+                  shape
+                end
+        defined?(value.class) ? value.class : "a classless object"
       end
     end
     private_constant :Checks

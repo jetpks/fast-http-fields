@@ -185,7 +185,12 @@ module Fast
       # raises SerializeError before a member is built. The empty Hash
       # builds the empty value: a sender omits the field.
       def initialize(members = {})
-        raise SerializeError.new("members are a Hash (got #{members.class})", 0) unless members.is_a?(Hash)
+        case members
+        when Hash
+          nil
+        else
+          raise SerializeError.new("members are a Hash (got #{shape(members)})", 0)
+        end
 
         held = {}
         members.each do |key, value|
@@ -277,7 +282,14 @@ module Fast
         check_key(key)
         return if self.class.send(:value_ok?, value)
 
-        raise SerializeError.new("#{key}: #{self.class.send(:value_rule)} (got #{value.inspect})", 0)
+        raise SerializeError.new("#{key}: #{self.class.send(:value_rule)} (got #{shape(value)})", 0)
+      end
+
+      # The class of a value an error message names, or a placeholder
+      # when the value has none (a BasicObject descendant) — the
+      # message never calls a method on the value it is rejecting.
+      def shape(value)
+        defined?(value.class) ? value.class : "a classless object"
       end
 
       # The Algorithm Key grammar, RFC 9651 §4.2.3.3 read from the value
@@ -286,24 +298,27 @@ module Fast
       def check_key(key)
         return if valid_key?(key)
 
-        raise SerializeError.new("#{key.inspect} is not a Structured Fields key", 0)
+        raise SerializeError.new("#{shape(key)} is not a Structured Fields key", 0)
       end
 
       # The walk behind check_key — manual and allocation-free, the
       # shape the substrate's own key parse uses.
       def valid_key?(key)
-        return false unless key.is_a?(String)
+        case key
+        when String
+          size = key.bytesize
+          return false if size.zero? || !KEY_FIRST[key.getbyte(0)]
 
-        size = key.bytesize
-        return false if size.zero? || !KEY_FIRST[key.getbyte(0)]
+          index = 1
+          while index < size
+            return false unless KEY_BODY[key.getbyte(index)]
 
-        index = 1
-        while index < size
-          return false unless KEY_BODY[key.getbyte(index)]
-
-          index += 1
+            index += 1
+          end
+          true
+        else
+          false
         end
-        true
       end
     end
     private_constant :Field
@@ -323,7 +338,14 @@ module Fast
       # ASCII-8BIT and not a Token (the class is the token's tag), the
       # exact shape Fast::SFV emits as ":base64:".
       def self.value_ok?(value)
-        value.is_a?(String) && !value.is_a?(Token) && value.encoding == BINARY
+        case value
+        when Token
+          false
+        when String
+          value.encoding == BINARY
+        else
+          false
+        end
       end
 
       # The wording a ParseError or SerializeError carries for a member
@@ -357,7 +379,14 @@ module Fast
       # ASCII-8BIT and not a Token, the exact shape Fast::SFV emits as
       # ":base64:".
       def self.value_ok?(value)
-        value.is_a?(String) && !value.is_a?(Token) && value.encoding == BINARY
+        case value
+        when Token
+          false
+        when String
+          value.encoding == BINARY
+        else
+          false
+        end
       end
 
       # The wording a ParseError or SerializeError carries for a member
@@ -389,7 +418,12 @@ module Fast
     class WantContentDigest < Field
       # §4's member constraint: an Integer 0..10.
       def self.value_ok?(value)
-        value.is_a?(Integer) && value.between?(0, 10)
+        case value
+        when Integer
+          value.between?(0, 10)
+        else
+          false
+        end
       end
 
       # The wording a ParseError or SerializeError carries for a member
@@ -408,7 +442,12 @@ module Fast
     class WantReprDigest < Field
       # §4's member constraint: an Integer 0..10.
       def self.value_ok?(value)
-        value.is_a?(Integer) && value.between?(0, 10)
+        case value
+        when Integer
+          value.between?(0, 10)
+        else
+          false
+        end
       end
 
       # The wording a ParseError or SerializeError carries for a member

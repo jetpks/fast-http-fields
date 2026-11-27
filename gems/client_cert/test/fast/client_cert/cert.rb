@@ -99,7 +99,7 @@ describe Fast::ClientCert::Cert do
       error = strict_error_of("::")
       expect(error).to be(:kind_of?, Fast::ClientCert::ParseError)
       expect(error.offset).to be(:==, 0)
-      expect(error.message).to be(:==, %(Client-Cert: the value is a Byte Sequence (got "")))
+      expect(error.message).to be(:==, %(Client-Cert: the value is a Byte Sequence (got String)))
     end
 
     it "names the type 2.1 states" do

@@ -42,10 +42,10 @@ module Fast
         # §2.1).
         def param_ok?(key, value)
           case key
-          when "error" then value.is_a?(Token)
+          when "error" then token_value?(value)
           when "next-hop" then identifier_value?(value)
           when "next-protocol" then byte_value?(value)
-          when "received-status" then value.is_a?(Integer)
+          when "received-status" then integer_value?(value)
           when "details" then plain_string?(value)
           else true
           end
@@ -69,7 +69,34 @@ module Fast
         # a Token, or a String tagged ASCII-8BIT (the Byte Sequence
         # tag).
         def byte_value?(value)
-          value.is_a?(Token) || (value.is_a?(String) && value.encoding == BINARY)
+          case value
+          when Token
+            true
+          when String
+            value.encoding == BINARY
+          else
+            false
+          end
+        end
+
+        # §2.1.1's shape, as a never-dispatch predicate: a Token.
+        def token_value?(value)
+          case value
+          when Token
+            true
+          else
+            false
+          end
+        end
+
+        # §2.1.4's shape, as a never-dispatch predicate: an Integer.
+        def integer_value?(value)
+          case value
+          when Integer
+            true
+          else
+            false
+          end
         end
 
         private
@@ -84,7 +111,14 @@ module Fast
         # String, not a Token (a Token is a different wire type) and not
         # a Byte Sequence.
         def plain_string?(value)
-          !value.is_a?(Token) && identifier_value?(value)
+          case value
+          when Token
+            false
+          when String
+            value.encoding != BINARY
+          else
+            false
+          end
         end
       end
 

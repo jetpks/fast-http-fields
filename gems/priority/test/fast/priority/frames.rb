@@ -99,7 +99,7 @@ describe Fast::Priority do
         error = e
       end
       expect(error).to be(:kind_of?, Fast::Priority::Error)
-      expect(error.message).to be(:==, "the prioritized stream ID is an Integer 1..0x7FFFFFFF, never 0 (got 0)")
+      expect(error.message).to be(:==, "the prioritized stream ID is an Integer 1..0x7FFFFFFF, never 0 (got Integer)")
       expect(error.offset).to be(:==, 0)
       expect(Fast::Priority::H2.encode_payload(1, priority).unpack1("H*")).to be(:==, "00000001753d312c2069")
     end

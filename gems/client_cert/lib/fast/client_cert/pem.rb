@@ -34,7 +34,8 @@ module Fast
     # payload line stripped of the whitespace around it, generous the
     # way textual encodings need. Blank lines may lead and follow the
     # block; CRLF line endings are tolerated. Armor-shape failures
-    # raise Error: no BEGIN line, the END missing, no payload, or
+    # raise Error: no BEGIN line, the END missing, no payload (a
+    # payload region of blank lines alone carries no payload), or
     # content other than blank lines after the END (a second block —
     # one PEM block at a time; pass an Array of blocks to
     # pems_to_field for a chain). TypeError for a non-String.
@@ -54,9 +55,11 @@ module Fast
       unless first_armor_line(lines, first, last) == last
         raise Error, "one PEM block at a time — pass an Array of blocks for a chain"
       end
-      raise Error, "the PEM block carries no payload" unless last - first > 1
 
-      ":#{lines[first + 1...last].map(&:strip).join}:"
+      base64 = lines[first + 1...last].map(&:strip).join
+      raise Error, "the PEM block carries no payload" if base64.empty?
+
+      ":#{base64}:"
     end
 
     # The inverse: ":<base64>:" → one RFC 7468 block — the base64
