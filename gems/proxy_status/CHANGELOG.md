@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.1.1 (2026-11-27)
+
+- Fixed: the strict `parse!` positions member and parameter errors
+  through the substrate's region scan (`Fast::SFV.regions_list` /
+  `regions_dict`, fast-sfv 0.2.0) instead of this gem's two private
+  walks — the private walks desynced on two legal RFC 9651 shapes (a
+  display string whose content ends in a backslash — §4.2.10 has no
+  backslash escaping, backslash is literal content and only DQUOTE
+  closes — and parameters on the valueless dictionary member,
+  `a;q=1`), so Proxy-Status, Cache-Status and Targeted Cache Control
+  raised at a past-the-end offset, a nil offset, or a wrapped
+  substrate failure where the offender's own position sits. Every
+  pinned offset is unchanged; both private walk classes and the local
+  field-line joins are gone (the substrate's validated combine is the
+  only one), and the clean paths pay nothing for positioning (the
+  violation falls now pay the substrate's region scan instead —
+  budgets re-pinned at thirteen objects).
+- Added: `TargetedCacheControl#each` without a block answers an
+  `Enumerator` over the same key/value pairs (the List fields' `#each`
+  already did) — the family's iteration convention; the allocation
+  lands only on that cold path.
+- Hygiene: the fast-sfv dependency floored at `~> 0.2` (the
+  region-scan API this release reads).
+
 ## 0.1.0 (2026-11-26)
 
 - Fields: `Fast::ProxyStatus` — the RFC 9209 Proxy-Status field as a

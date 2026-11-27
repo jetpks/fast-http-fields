@@ -19,8 +19,8 @@ PATH
 PATH
   remote: gems/proxy_status
   specs:
-    fast-proxy-status (0.1.0)
-      fast-sfv
+    fast-proxy-status (0.1.1)
+      fast-sfv (~> 0.2)
 
 PATH
   remote: gems/sfv
@@ -115,7 +115,7 @@ CHECKSUMS
   fast-client-cert (0.1.0)
   fast-digest (0.1.1)
   fast-priority (0.1.1)
-  fast-proxy-status (0.1.0)
+  fast-proxy-status (0.1.1)
   fast-sfv (0.2.0)
   fiber-annotation (0.2.0) sha256=7abfadf1d119f508867d4103bf231c0354d019cc39a5738945dec2edadaf6c03
   fiber-local (1.1.0) sha256=c885f94f210fb9b05737de65d511136ea602e00c5105953748aa0f8793489f06

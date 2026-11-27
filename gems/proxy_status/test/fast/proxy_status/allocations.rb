@@ -15,13 +15,14 @@ require "fast/proxy_status"
 # fall to the shared frozen empty value 8 (the SFV parse's own failure
 # path — its message String, its ParseError and the backtrace — plus
 # the wrapped ParseError; the empty value itself is shared and costs
-# nothing); the member-violation fall 11 (the parse's six, then the
-# positioning Scan with its walk and the raised, positioned ParseError
-# — the one path that pays for offsets, since the lenient policy is
+# nothing); the member-violation fall 13 (the parse's six, then the
+# substrate's region scan with its frozen Regions and the raised,
+# positioned ParseError — the one path that pays for offsets, since
+# the lenient policy is
 # the strict walk with the section 2.1 checks off, the member failure
 # rescued into the empty value); the strict parse 13 and the valid?
-# mirror 13 (the clean paths count alike — the Scan runs only where an
-# error needs an offset); the Hop construction 2 (the default params
+# mirror 13 (the clean paths count alike — the region scan runs only
+# where an error needs an offset); the Hop construction 2 (the default params
 # Hash and the frozen Hop); the append on a held value 4 (the members
 # copy, the params Hash, the Hop, the value object — no re-parse, no
 # re-emit); the append over a received String 17 (the lenient parse
@@ -37,14 +38,14 @@ require "fast/proxy_status"
 # Array and the frozen value object); the three-line combined parse
 # 32 (three members, the combined String the Array join builds, and
 # the parse's own count over them); the malformed fall 8; the
-# member-violation fall 11 (the positioning Scan's price, as the
-# Proxy-Status path pays it); the strict parse 11 and the valid?
-# mirror 17 (the Scan runs only on the error path, so the clean paths
-# count the parse's own); the Cache construction 2 (the default params
+# member-violation fall 13 (the substrate region scan's price, as the
+# Proxy-Status path pays it); the strict parse 13 and the valid?
+# mirror 17 (the region scan runs only on the error path, so the clean
+# paths count the parse's own); the Cache construction 2 (the default params
 # Hash and the frozen Cache); the append on a held value 4 (the members
 # copy, the params Hash, the Cache, the value object); the append over
 # a received String 15 (the lenient parse 11, then the held append's
-# four); the emit 1.
+# four, the region scan the violation falls pay); the emit 1.
 #
 # TargetedCacheControl, measured the same way and frozen: the
 # two-member parse 9 (the SFV Parser, the dictionary Hash with its two
@@ -52,7 +53,7 @@ require "fast/proxy_status"
 # the frozen value object); the malformed fall 8; the flagged parse 8
 # (the parse's own count plus the key the walk flags — the flag is
 # data, never a wire change); the strict parse 9 and the valid? mirror
-# 9 (the dict Scan runs only where an error needs an offset); the
+# 9 (the region scan runs only where an error needs an offset); the
 # construction 5 (the held Hash, the Item, the violations Array, the
 # keys view and the frozen value object); the emit 1.
 #
@@ -81,11 +82,15 @@ describe "allocations" do
     expect(allocations { Fast::ProxyStatus.parse("!!") }).to be(:<, 9)
   end
 
-  it "pays the positioning Scan on a member-violation fall in eleven objects" do
+  it "pays the region scan on a member-violation fall in thirteen objects" do
     Fast::ProxyStatus.parse("ExampleCDN, 5")
-    # The parse's six, the Scan instance, the positioned ParseError and
-    # its message — the member failure the lenient parse rescues.
-    expect(allocations { Fast::ProxyStatus.parse("ExampleCDN, 5") }).to be(:<, 12)
+    # The parse's six, the substrate's frozen Regions with its members
+    # Array and a Region per member, the positioned ParseError and its
+    # message — the member failure the lenient parse rescues. The
+    # region scan replaces the private positioning walk this budget
+    # used to count, costing its two value objects more for the
+    # substrate's §4.2-exact spans.
+    expect(allocations { Fast::ProxyStatus.parse("ExampleCDN, 5") }).to be(:<, 14)
   end
 
   it "parses strictly in thirteen objects" do
@@ -167,19 +172,22 @@ describe "allocations" do
     expect(allocations { Fast::CacheStatus.parse("!!") }).to be(:<, 9)
   end
 
-  it "pays the positioning Scan on a Cache-Status member-violation fall in eleven objects" do
+  it "pays the region scan on a Cache-Status member-violation fall in thirteen objects" do
     Fast::CacheStatus.parse("ExampleCache, 5")
-    # The parse's own count, the Scan instance, the positioned
-    # ParseError and its message — the member failure the lenient parse
-    # rescues.
-    expect(allocations { Fast::CacheStatus.parse("ExampleCache, 5") }).to be(:<, 12)
+    # The parse's own count, the substrate's frozen Regions with its
+    # members Array and a Region per member, the positioned ParseError
+    # and its message — the member failure the lenient parse rescues.
+    # The region scan replaces the private positioning walk this
+    # budget used to count, costing its two value objects more for the
+    # substrate's §4.2-exact spans.
+    expect(allocations { Fast::CacheStatus.parse("ExampleCache, 5") }).to be(:<, 14)
   end
 
   it "parses a Cache-Status field strictly in eleven objects" do
     input = "ExampleCache; hit; ttl=376"
     Fast::CacheStatus.parse!(input)
-    # The clean path counts the parse's own — the Scan runs only where
-    # an error needs an offset.
+    # The clean path counts the parse's own — the region scan runs
+    # only where an error needs an offset.
     expect(allocations { Fast::CacheStatus.parse!(input) }).to be(:<, 12)
   end
 
