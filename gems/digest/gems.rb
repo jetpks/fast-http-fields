@@ -16,7 +16,7 @@ source "https://rubygems.org"
 #   BUNDLE_GEMFILE=gems/digest/gems.rb bundle exec ruby \
 #     gems/digest/benchmark/digest.rb
 #
-# The pinned fast-sfv is the published 0.1.1 artifact — the substrate
+# The pinned fast-sfv is the published 0.2.1 artifact — the substrate
 # the benchmark parses and emits through — and not a path entry into
 # the sibling checkout (a path form would expand the checkout into
 # the cache as an unpacked tree, a stale-copy hazard).
@@ -28,7 +28,7 @@ group :benchmark do
   # stages from the same gitignored cache; never a runtime dependency.
   gem "benchmark-ips", "2.15.1"
   # The published substrate this gem's fields parse and emit through —
-  # the same 0.1.1 artifact script/verify-packaged.rb proves. Never a
+  # the same 0.2.1 artifact script/verify-packaged.rb proves. Never a
   # comparator, never a runtime dependency beyond the gemspec's own.
-  gem "fast-sfv", "0.1.1"
+  gem "fast-sfv", "0.2.1"
 end
